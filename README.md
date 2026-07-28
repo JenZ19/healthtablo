@@ -26,8 +26,8 @@
 Нужен macOS и Python 3.11+.
 
 ```bash
-git clone git@github.com:JenZ19/family-health-hub.git
-cd family-health-hub
+git clone git@github.com:JenZ19/healthtablo.git
+cd healthtablo
 ./start.command
 ```
 
