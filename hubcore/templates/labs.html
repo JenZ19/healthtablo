@@ -39,4 +39,25 @@
 <p class="empty-state">Ничего не найдено по выбранным фильтрам.</p>
 {% endif %}
 </div>
+
+{% if unmatched %}
+<h2>Не распознано — {{ unmatched_total }} строк{{ '' if unmatched_total % 10 == 1 and unmatched_total % 100 != 11 else 'и' }}</h2>
+<p class="muted" style="font-size:0.85rem;">
+  Эти значения есть в бланках, но хаб не понял, что это за показатель. В графики и сводку
+  они не попадают. Чтобы показатель заработал, допишите его название в справочник
+  <code>hubcore/analytes.py</code> и перезапустите разбор.
+</p>
+<table>
+  <tr><th>Как записано в бланке</th><th>Единицы</th><th>Раз</th><th>Последний</th></tr>
+  {% for u in unmatched %}
+  <tr>
+    <td>{{ u.raw_name }}</td>
+    <td class="muted">{{ u.unit or '—' }}</td>
+    <td>{{ u.n }}</td>
+    <td class="muted">{{ u.last_seen|fmt_date }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
 {% endblock %}

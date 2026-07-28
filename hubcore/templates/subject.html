@@ -2,7 +2,10 @@
 {% block title %}{{ subject.name }} — Семейный хаб здоровья{% endblock %}
 {% block content %}
 <div class="subject-page subject-{{ subject.slug }}">
-<h1><span class="subject-dot"></span>{{ subject.name }}</h1>
+<h1>
+  <svg class="avatar avatar-lg" aria-hidden="true"><use href="#av-{{ 'dog' if subject.kind == 'dog' else ('man' if subject.sex == 'male' else 'woman') }}"></use></svg>
+  {{ subject.name }}
+</h1>
 <div class="section-tabs">
   <a class="active" href="/s/{{ subject.slug }}">Профиль</a>
   <a href="/s/{{ subject.slug }}/timeline">Лента</a>

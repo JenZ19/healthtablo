@@ -101,7 +101,10 @@
 <div class="cards">
   {% for c in subject_cards %}
   <div class="card subject-card subject-{{ c.row.slug }}">
-    <h3><span class="subject-dot"></span><a href="/s/{{ c.row.slug }}">{{ c.row.name }}</a></h3>
+    <div class="subject-head">
+      <svg class="avatar" aria-hidden="true"><use href="#av-{{ 'dog' if c.row.kind == 'dog' else ('man' if c.row.sex == 'male' else 'woman') }}"></use></svg>
+      <h3><a href="/s/{{ c.row.slug }}">{{ c.row.name }}</a></h3>
+    </div>
     <p class="muted">
       {% if c.row.kind == 'dog' %}{{ c.row.breed or 'собака' }}{% else %}{{ 'мужчина' if c.row.sex == 'male' else ('женщина' if c.row.sex == 'female' else 'человек') }}{% endif %}
       {% if c.age %} · {{ c.age }}{% endif %}

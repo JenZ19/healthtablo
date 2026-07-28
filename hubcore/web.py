@@ -1713,8 +1713,21 @@ def labs(request: Request, slug: str, category: str = "", only_abnormal: str = "
             params.append(category)
         if only_abnormal:
             query += " AND results.flag IN ('low','high')"
-        query += " ORDER BY results.taken_at DESC"
+        query += " AND results.analyte_id IS NOT NULL ORDER BY results.taken_at DESC"
         rows = conn.execute(query, params).fetchall()
+
+        # Строки, которые хаб не смог сопоставить ни с одним маркером.
+        # Показываются отдельно и честно: пока показатель не опознан, он не
+        # попадает ни в график, ни в сводку, и молча прятать его нельзя —
+        # иначе кажется, что данные разобраны полностью.
+        unmatched = conn.execute(
+            """SELECT raw_name, unit, COUNT(*) n, MAX(taken_at) last_seen
+                 FROM results
+                WHERE subject_id=? AND analyte_id IS NULL
+                GROUP BY raw_name, unit
+                ORDER BY n DESC, raw_name""",
+            (subject["id"],),
+        ).fetchall()
 
         return templates.TemplateResponse(
             request,
@@ -1723,6 +1736,8 @@ def labs(request: Request, slug: str, category: str = "", only_abnormal: str = "
                 "request": request,
                 "subject": subject,
                 "rows": rows,
+                "unmatched": unmatched,
+                "unmatched_total": sum(u["n"] for u in unmatched),
                 "categories": categories(),
                 "selected_category": category,
                 "only_abnormal": only_abnormal,

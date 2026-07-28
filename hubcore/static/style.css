@@ -924,3 +924,18 @@ td a[class^="subject-"], td a[class*=" subject-"] { color: var(--subject, var(--
 .doctor-note-src { font-size: 0.8rem; color: var(--text-muted); }
 .doctor-note ul { margin: 9px 0 0; padding-left: 20px; display: grid; gap: 5px; }
 .doctor-note li { font-size: 0.9rem; line-height: 1.45; }
+
+/* --- Аватарки членов семьи -------------------------------------------
+   Цвет берётся из currentColor, а он наследуется от --subject карточки,
+   поэтому каждая аватарка автоматически оказывается в цвете человека. */
+
+.avatar {
+  width: 40px; height: 40px;
+  flex: none;
+  color: var(--subject, var(--accent));
+}
+.avatar-lg { width: 46px; height: 46px; margin-right: 12px; }
+
+.subject-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.subject-head h3 { margin: 0; }
+.subject-page h1 { gap: 0; }

@@ -15,7 +15,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import db as db_module
-from .analytes import match_analyte, normalize_unit
+from .analytes import (
+    convert_to_canonical,
+    implausible,
+    match_analyte,
+    normalize_unit,
+)
 from .parsers import PARSER_CHAIN
 from .parsers.prescription import course_days as prescription_course_days
 from .parsers.base import ParsedDocument, compute_flag
@@ -302,16 +307,51 @@ def store_original(path: Path, subject_slug: str | None, doc_date: str | None, t
 
 MATERIAL_PREFIX_RE = re.compile(r"^(моча|кал|мокрота|слюна)\s*:\s*", re.I)
 
+# Анализ минерального обмена делается по волосам и ногтям, и его результаты
+# нельзя класть в те же маркеры, что кальций или железо крови: там мкг/г
+# против ммоль/л, разные нормы и разный смысл. Биоматериал указан прямо
+# в названии показателя — «Кальций (волос)».
+_HAIR_RE = re.compile(r"\((?:волос\w*|ногт\w*)\)", re.I)
 
-def split_material(raw_name: str) -> tuple[str | None, str]:
+# Префикс биоматериала крови в начале названия: «Сывкрови:», «Сыв. крови:»,
+# «Плазма:». Это базовый материал, отдельным маркером он быть не должен.
+_BLOOD_PREFIX_RE = re.compile(r"^\s*(?:сыв\.?\s*крови|сывкрови|сыворотка|плазма|кровь)\s*:\s*", re.I)
+
+# Микроэлементная панель крови даёт те же элементы, но в мкг/л вместо
+# ммоль/л — это тоже отдельный ряд, иначе железо 550 мкг/л встаёт рядом
+# с железом 17 мкмоль/л и выглядит как двадцатикратный скачок.
+_MICRO_UNITS = ("мкг/л", "мкг/г", "нг/г", "мг/кг")
+_MINERALS = ("кальци", "магни", "кали", "натри", "фосфор", "цинк", "железо",
+             "медь", "селен", "марганец", "хром", "кобальт", "никел", "свинец",
+             "ртут", "кадми", "мышьяк", "алюмини", "литий", "бор", "молибден",
+             "сурьм", "бериллий")
+
+
+def split_material(raw_name: str, unit: str | None = None) -> tuple[str | None, str]:
     """Отделить биоматериал от названия показателя.
 
     «Моча: Глюкоза» → («моча», «Глюкоза»). Для крови префикса нет.
+    Дополнительно распознаётся анализ волос и микроэлементная панель.
     """
-    m = MATERIAL_PREFIX_RE.match(raw_name or "")
-    if not m:
-        return None, raw_name
-    return m.group(1).lower(), raw_name[m.end():].strip()
+    name = raw_name or ""
+
+    # «Сывкрови: C-реактивный белок» — часть бланков пишет биоматериал
+    # префиксом. Сыворотка и плазма это кровь, то есть базовый материал:
+    # префикс отрезаем, но отдельный маркер не заводим.
+    name = _BLOOD_PREFIX_RE.sub("", name).strip()
+
+    m = MATERIAL_PREFIX_RE.match(name)
+    if m:
+        return m.group(1).lower(), name[m.end():].strip()
+
+    if _HAIR_RE.search(name):
+        return "волосы", _HAIR_RE.sub("", name).strip(" ,.")
+
+    low = name.lower()
+    u = (unit or "").strip().lower()
+    if u in _MICRO_UNITS and any(k in low for k in _MINERALS):
+        return "микроэлементы", re.sub(r"\((?:кровь|сыворотка)\)", "", name, flags=re.I).strip(" ,.")
+    return None, name
 
 
 # Показатели лейкоформулы лаборатории дают дважды: в процентах и в
@@ -365,7 +405,7 @@ def resolve_analyte(conn, raw_name: str, unit: str | None = None) -> int | None:
     с 4,7 ммоль/л в крови выглядит как обвал сахара, которого не было.
     Поэтому для небазового биоматериала заводится отдельный аналит.
     """
-    material, base_name = split_material(raw_name)
+    material, base_name = split_material(raw_name, unit)
     form, base_name = split_form(base_name, unit)
     code = match_analyte(base_name)
     if code is None:
@@ -373,7 +413,8 @@ def resolve_analyte(conn, raw_name: str, unit: str | None = None) -> int | None:
     if material is None and form is None:
         return _analyte_id_by_code(conn, code)
 
-    suffix_map = {'моча': 'urine', 'кал': 'stool', 'мокрота': 'sputum', 'слюна': 'saliva'}
+    suffix_map = {'моча': 'urine', 'кал': 'stool', 'мокрота': 'sputum', 'слюна': 'saliva',
+                  'волосы': 'hair', 'микроэлементы': 'micro'}
     parts = []
     if material:
         parts.append(suffix_map[material])
@@ -474,7 +515,7 @@ def ingest_path(
                 doc_date=parsed.doc_date,
                 lab_name=parsed.lab_name,
                 results_count=len(parsed.results),
-                matched_count=sum(1 for r in parsed.results if match_analyte(split_material(r.raw_name)[1])),
+                matched_count=sum(1 for r in parsed.results if match_analyte(split_material(r.raw_name, r.unit)[1])),
                 parsed_ok=parsed.parsed_ok,
                 parse_note=parsed.parse_note,
                 message="сухой прогон — в БД ничего не записано",
@@ -514,11 +555,27 @@ def ingest_path(
         for r in parsed.results:
             analyte_id = resolve_analyte(conn, r.raw_name, r.unit)
             # единицы приводим по базовому названию без префикса биоматериала
-            code = match_analyte(split_material(r.raw_name)[1])
+            code = match_analyte(split_material(r.raw_name, r.unit)[1])
             value_num, unit = normalize_unit(r.value_num, r.unit, code)
             value_num, r.ref_low, r.ref_high = rescale_specific_gravity(
                 r.raw_name, value_num, r.ref_low, r.ref_high
             )
+            # Пересчёт в каноническую единицу — обязательно ДО проверки
+            # правдоподобия: гемоглобин 11,9 г/дл до пересчёта выглядит
+            # невозможным, после (119 г/л) — совершенно обычным.
+            value_num, unit, r.ref_low, r.ref_high = convert_to_canonical(
+                code, value_num, unit, r.ref_low, r.ref_high
+            )
+
+            # Значение за физиологическими пределами маркера почти всегда
+            # означает ошибку разбора или сопоставления, а не находку. Такой
+            # результат сохраняется, но к маркеру не привязывается — иначе он
+            # испортит график и попадёт в сводку как «отклонение».
+            note_suffix = ""
+            if analyte_id is not None and implausible(code, value_num, unit):
+                analyte_id = None
+                note_suffix = " ⚠ значение вне физиологических пределов маркера — требует проверки"
+
             flag = compute_flag(value_num, r.ref_low, r.ref_high)
             if analyte_id:
                 matched_count += 1
