@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Главная — Семейный хаб здоровья{% endblock %}
+{% block content %}
+<h1>За чем следить</h1>
+
+{% if attention_now or attention_stale %}
+<div class="watch-grid">
+  {% for a in attention_now %}
+  <a class="watch-card alert subject-{{ a.slug }}" href="{{ a.link }}">
+    <div class="watch-top">
+      <span class="watch-subject"><span class="subject-dot"></span>{{ a.subject }}</span>
+      <span class="watch-date">{{ a.date|fmt_date }}</span>
+    </div>
+    <div class="watch-title">{{ a.title }}</div>
+    <div class="watch-value">
+      {{ a.value }}
+      {% if a.dev_pct %}<span class="watch-dev">{{ '↑' if a.dev_dir == 'выше' else '↓' }}{{ a.dev_pct }}%</span>{% endif %}
+    </div>
+    <div class="watch-why">
+      {{ a.ref }}{% if a.trend %} · <b>{{ a.trend }}</b>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+
+  {% for a in attention_stale %}
+  <a class="watch-card stale subject-{{ a.slug }}" href="{{ a.link }}">
+    <div class="watch-top">
+      <span class="watch-subject"><span class="subject-dot"></span>{{ a.subject }}</span>
+      <span class="watch-date">{{ a.date|fmt_date }}</span>
+    </div>
+    <div class="watch-title">{{ a.title }}</div>
+    <div class="watch-value">
+      {{ a.value }}
+      {% if a.dev_pct %}<span class="watch-dev">{{ '↑' if a.dev_dir == 'выше' else '↓' }}{{ a.dev_pct }}%</span>{% endif %}
+    </div>
+    <div class="watch-why">{{ a.why }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% if attention_stale_more %}
+<p class="muted">…и ещё {{ attention_stale_more }} показател(ь/я/ей) вне нормы, которые давно не пересдавали —
+  смотрите на странице «Все анализы» у каждого.</p>
+{% endif %}
+<p class="muted watch-note">
+  Хаб показывает только то, что видно из самих цифр: значение вне референса лаборатории,
+  ухудшение относительно прошлого раза и давность измерения. Это не диагноз и не замена врачу —
+  это подсказка, куда посмотреть.
+</p>
+{% else %}
+<p class="empty-state">Ничего, что требовало бы внимания прямо сейчас.</p>
+{% endif %}
+
+{% if meds_progress %}
+<h2>Курсы лекарств в этом месяце</h2>
+<div class="cards">
+  {% for m in meds_progress %}
+  <a class="card course-card subject-{{ m.slug }}" href="/s/{{ m.slug }}/meds">
+    <div class="course-top">
+      <span>{{ m.name }}</span>
+      <span class="course-pct">{{ m.pct }}%</span>
+    </div>
+    <div class="course-bar"><span style="width: {{ m.pct }}%"></span></div>
+    <p class="muted" style="font-size:0.8rem; margin:8px 0 0;">
+      принято {{ m.taken }} из {{ m.total }} · {{ m.meds|join(', ')|truncate(60) }}
+    </p>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if rhythm.subjects %}
+<h2>Карта обследований</h2>
+<div class="heat">
+  {% for s in rhythm.subjects %}
+  <div class="heat-row subject-{{ s.slug }}">
+    <a class="heat-name" href="/s/{{ s.slug }}">
+      <span class="subject-dot"></span>{{ s.name }}
+      <span class="muted"> · {{ s.total }} за {{ s.months_covered }} мес.</span>
+    </a>
+    <div class="heat-cells">
+      {% for c in s.cells %}
+      <i class="heat-cell lv{{ c.level }} {{ 'yr' if c.year_start }}"
+         title="{{ c.label }}: {{ c.n }}"></i>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  <div class="heat-axis">
+    {% for m in rhythm.year_marks %}
+    <span class="heat-year" style="left: calc({{ m.index }} * (100% / {{ rhythm.months|length }}))">{{ m.year }}</span>
+    {% endfor %}
+  </div>
+</div>
+<p class="muted" style="font-size:0.8rem;">
+  Клетка — месяц, насыщенность — сколько документов. Светлая полоса значит, что обследований за этот месяц нет.
+</p>
+{% endif %}
+
+<h2>Семья</h2>
+
+<div class="cards">
+  {% for c in subject_cards %}
+  <div class="card subject-card subject-{{ c.row.slug }}">
+    <h3><span class="subject-dot"></span><a href="/s/{{ c.row.slug }}">{{ c.row.name }}</a></h3>
+    <p class="muted">
+      {% if c.row.kind == 'dog' %}{{ c.row.breed or 'собака' }}{% else %}{{ 'мужчина' if c.row.sex == 'male' else ('женщина' if c.row.sex == 'female' else 'человек') }}{% endif %}
+      {% if c.age %} · {{ c.age }}{% endif %}
+    </p>
+    <p>Документов: {{ c.doc_count }}</p>
+    {% if c.last_doc %}
+    <p class="muted">Последний: {{ c.last_doc.title or c.last_doc.kind }} ({{ c.last_doc.doc_date|fmt_date }})</p>
+    {% endif %}
+    {% if c.abnormal %}
+    <p><span class="badge high">{{ c.abnormal }} вне референса за год</span></p>
+    {% else %}
+    <p><span class="badge normal">без отклонений за год</span></p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if needs_review %}
+<p><a href="/inbox">⚠ {{ needs_review }} документ(ов) требует разбора</a></p>
+{% endif %}
+
+<h2>Последние документы</h2>
+{% if recent_docs %}
+<table>
+  <tr><th>Дата</th><th>Название</th><th>Субъект</th><th>Источник</th><th></th></tr>
+  {% for d in recent_docs %}
+  <tr>
+    <td>{{ d.doc_date|fmt_date }}</td>
+    <td>{{ d.title or d.kind }}</td>
+    <td>{% if d.subject_slug %}<a class="subject-{{ d.subject_slug }}" href="/s/{{ d.subject_slug }}"><span class="subject-dot"></span>{{ d.subject_name }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td>{{ d.source }}</td>
+    <td><a href="/document/{{ d.id }}">открыть</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Документов пока нет — закиньте файлы в папку inbox/ и разберите их на странице «Входящие».</p>
+{% endif %}
+
+<h2>Вне референса за последний год</h2>
+{% if out_of_range %}
+<table>
+  <tr><th>Дата</th><th>Субъект</th><th>Маркер</th><th>Значение</th><th>Референс</th><th>Флаг</th></tr>
+  {% for r in out_of_range %}
+  <tr>
+    <td>{{ r.taken_at|fmt_date }}</td>
+    <td><a class="subject-{{ r.subject_slug }}" href="/s/{{ r.subject_slug }}"><span class="subject-dot"></span>{{ r.subject_name }}</a></td>
+    <td>{% if r.analyte_code %}<a href="/s/{{ r.subject_slug }}/marker/{{ r.analyte_code }}">{{ r.analyte_name }}</a>{% else %}{{ r.raw_name }}{% endif %}</td>
+    <td>{{ r.value_num|fmt_num }} {{ r.unit or '' }}</td>
+    <td>{{ r.ref_text or '—' }}</td>
+    <td class="flag-{{ r.flag }}">{{ {'low': 'ниже нормы', 'high': 'выше нормы'}.get(r.flag, r.flag) }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">За последний год отклонений не найдено.</p>
+{% endif %}
+{% endblock %}

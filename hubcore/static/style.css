@@ -1,0 +1,926 @@
+/* Семейный хаб здоровья — оформление.
+
+   Задача оформления здесь не «красиво», а «спокойно»: это медицинские
+   данные, и тревожный интерфейс к ним противопоказан. Отсюда тёплый
+   бумажный фон, мягкие тени вместо жёстких рамок, крупный воздух между
+   блоками — и единственный резкий цвет во всей палитре, терракотовый,
+   зарезервирован строго за значениями вне референса. Если на экране
+   что-то краснеет — это важно, а не декор.
+*/
+
+:root {
+  --bg: #faf7f2;
+  --bg-tint: #f3ede4;
+  --surface: #ffffff;
+  --border: #ece4d8;
+  --border-strong: #ddd1c0;
+
+  --text: #33302b;
+  --text-muted: #8a8175;
+
+  --accent: #5b7f6b;
+  --accent-deep: #3f6050;
+  --accent-soft: #e8f0ea;
+
+  --low: #b9762c;
+  --low-soft: #fbeedd;
+  --high: #c05a4b;
+  --high-soft: #fbe7e3;
+  --normal: #5b7f6b;
+  --unknown: #a9a196;
+
+  /* Дополнительные приглушённые оттенки только для календаря настроения —
+     той же тёплой, не кричащей семьи, что и остальная палитра. */
+  --mood-calm: #93ab8e;
+  --mood-anxious: #c98a52;
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(58, 48, 36, 0.04), 0 6px 18px rgba(58, 48, 36, 0.05);
+  --shadow-hover: 0 2px 4px rgba(58, 48, 36, 0.06), 0 10px 28px rgba(58, 48, 36, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  background-image:
+    radial-gradient(circle at 12% -6%, #fdf3e6 0%, transparent 42%),
+    radial-gradient(circle at 92% 0%, #eef4ee 0%, transparent 38%);
+  background-attachment: fixed;
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent-deep); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* --- Шапка ---------------------------------------------------------- */
+
+header.site-header {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(140%) blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 30px;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+header.site-header .brand {
+  font-weight: 650;
+  font-size: 1.06rem;
+  letter-spacing: -0.01em;
+  color: var(--accent-deep);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* Кружок-«пульс» вместо иконки: не требует картинки и не отвлекает. */
+header.site-header .brand::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  flex: none;
+}
+
+header.site-header nav { display: flex; gap: 6px; flex-wrap: wrap; }
+
+header.site-header nav a {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  padding: 5px 11px;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+header.site-header nav a:hover {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+
+form.search-form { margin-left: auto; display: flex; gap: 7px; }
+form.search-form input[type="text"] {
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  min-width: 190px;
+  background: var(--surface);
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+form.search-form input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* --- Каркас --------------------------------------------------------- */
+
+main { max-width: 1100px; margin: 0 auto; padding: 30px 30px 80px; }
+
+h1 {
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 20px;
+}
+h2 {
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+  margin: 34px 0 12px;
+  color: var(--text);
+}
+h3 { font-size: 1rem; margin: 18px 0 8px; }
+
+/* --- Карточки ------------------------------------------------------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.cards .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.card h3 { margin-top: 0; }
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 550;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+.badge.low { background: var(--low-soft); color: var(--low); }
+.badge.high { background: var(--high-soft); color: var(--high); }
+.badge.normal { background: var(--accent-soft); color: var(--normal); }
+.badge.unknown { background: var(--bg-tint); color: var(--unknown); }
+
+/* --- Таблицы -------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+th, td {
+  text-align: left;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+th {
+  background: var(--bg-tint);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+tbody tr { transition: background 0.12s ease; }
+tbody tr:hover { background: #fdfbf7; }
+tr:last-child td { border-bottom: none; }
+
+.flag-low { color: var(--low); font-weight: 650; }
+.flag-high { color: var(--high); font-weight: 650; }
+.flag-normal { color: var(--normal); }
+.flag-unknown { color: var(--unknown); }
+
+/* --- Формы и кнопки ------------------------------------------------- */
+
+.filters { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.filters select, .filters input {
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.88rem;
+}
+.filters select:focus, .filters input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 9px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 550;
+  font-family: inherit;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.btn:hover { background: var(--accent-deep); text-decoration: none; }
+.btn:active { transform: translateY(1px); }
+.btn.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.btn.secondary:hover { background: var(--bg-tint); }
+
+/* --- Плитки маркеров ------------------------------------------------ */
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.tile {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 15px 17px;
+  box-shadow: var(--shadow);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  color: inherit;
+}
+.tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+.tile .tile-name {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  line-height: 1.35;
+  min-height: 2.1em;
+}
+.tile .tile-value { font-size: 1.32rem; font-weight: 650; letter-spacing: -0.02em; }
+.tile .tile-trend { font-size: 0.95rem; margin-left: 5px; color: var(--text-muted); font-weight: 400; }
+
+/* Плитка с отклонением подсвечивается краем — заметно, но не кричит. */
+.tile:has(.flag-high) { border-left: 3px solid var(--high); }
+.tile:has(.flag-low) { border-left: 3px solid var(--low); }
+
+/* --- Лента ---------------------------------------------------------- */
+
+.timeline-list { list-style: none; padding: 0; margin: 0; }
+.timeline-list li {
+  border-left: 2px solid var(--border);
+  padding: 2px 0 22px 22px;
+  position: relative;
+}
+.timeline-list li::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 7px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+.timeline-list li:last-child { border-left-color: transparent; }
+.timeline-date { font-size: 0.8rem; color: var(--text-muted); }
+.timeline-type {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- Встроенные формы ----------------------------------------------- */
+
+form.inline-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  align-items: end;
+  box-shadow: var(--shadow);
+}
+form.inline-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  gap: 5px;
+  letter-spacing: 0.01em;
+}
+form.inline-form input, form.inline-form select, form.inline-form textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: var(--surface);
+  color: var(--text);
+}
+form.inline-form input:focus, form.inline-form select:focus, form.inline-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+form.inline-form .submit-cell { grid-column: -2 / -1; }
+
+details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "＋"; font-size: 0.9em; opacity: 0.6; }
+details[open] > summary::before { content: "－"; }
+
+.muted { color: var(--text-muted); }
+.empty-state {
+  color: var(--text-muted);
+  padding: 22px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+/* --- Вкладки -------------------------------------------------------- */
+
+.section-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  background: var(--bg-tint);
+  padding: 4px;
+  border-radius: 999px;
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.section-tabs a {
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.section-tabs a:hover { color: var(--text); text-decoration: none; }
+.section-tabs a.active {
+  background: var(--surface);
+  color: var(--accent-deep);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+/* --- График динамики ------------------------------------------------ */
+
+.marker-chart {
+  width: 100%;
+  height: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 6px;
+}
+.marker-chart .axis { stroke: var(--border-strong); stroke-width: 1; }
+.marker-chart .chart-line {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.marker-chart .ref-band { fill: var(--accent-soft); opacity: 0.85; }
+.marker-chart .point-normal { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.marker-chart .point-abnormal { fill: var(--high); stroke: #fff; stroke-width: 2; }
+.marker-chart .axis-label { font-size: 10px; fill: var(--text-muted); }
+.marker-chart .value-label { font-size: 10px; fill: var(--text); }
+.marker-chart .value-abnormal { font-size: 10px; fill: var(--high); font-weight: 650; }
+
+/* --- Прочее --------------------------------------------------------- */
+
+.doc-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+.doc-list-item:last-child { border-bottom: none; }
+
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 640px) {
+  main { padding: 20px 16px 60px; }
+  header.site-header { padding: 12px 16px; gap: 14px; }
+  form.search-form { margin-left: 0; width: 100%; }
+  form.search-form input[type="text"] { min-width: 0; flex: 1; }
+  h1 { font-size: 1.4rem; }
+}
+
+/* --- Сводка «за чем следить» ---------------------------------------- */
+
+.watch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.watch-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 15px 17px;
+  box-shadow: var(--shadow);
+  color: inherit;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.watch-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); text-decoration: none; }
+
+/* Красный край — только для того, что вне нормы прямо сейчас.
+   Просроченное помечено спокойным охристым: это «пора проверить»,
+   а не «всё плохо». */
+.watch-card.alert { border-left-color: var(--high); }
+.watch-card.stale { border-left-color: var(--low); }
+
+.watch-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.watch-subject { font-size: 0.76rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.02em; }
+.watch-date { font-size: 0.76rem; color: var(--text-muted); white-space: nowrap; }
+.watch-title { font-size: 0.9rem; line-height: 1.3; margin-bottom: 6px; }
+.watch-value { font-size: 1.25rem; font-weight: 650; letter-spacing: -0.02em; }
+.watch-card.alert .watch-value { color: var(--high); }
+.watch-card.stale .watch-value { color: var(--low); }
+.watch-why { font-size: 0.78rem; color: var(--text-muted); margin-top: 5px; line-height: 1.35; }
+.watch-note { font-size: 0.82rem; margin: 4px 0 8px; max-width: 62ch; }
+
+/* --- Просмотр документа --------------------------------------------- */
+
+.doc-viewer {
+  width: 100%;
+  height: 78vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.doc-viewer-img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: block;
+}
+.raw-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  max-height: 60vh;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Величина отклонения — рядом со значением, помельче: важно «насколько»,
+   но само значение всё равно главнее. */
+.watch-dev {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-left: 6px;
+  opacity: 0.85;
+}
+.watch-card:not(.alert):not(.stale) { border-left-color: var(--accent); }
+.watch-card:not(.alert):not(.stale) .watch-value { color: var(--accent-deep); }
+
+/* --- Спарклайны «Динамика важного» ----------------------------------- */
+
+.spark-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.spark-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px 6px;
+  box-shadow: var(--shadow);
+  color: inherit;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.spark-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); text-decoration: none; }
+.spark-name {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  line-height: 1.3;
+  min-height: 2.1em;
+}
+.spark-card .marker-chart { padding: 0; border: none; box-shadow: none; background: transparent; }
+
+/* --- Питание ---------------------------------------------------------- */
+
+.feeding-card .feeding-food { font-size: 1.15rem; font-weight: 650; letter-spacing: -0.01em; }
+
+/* --- Вес: плашка превышения породного коридора ------------------------ */
+
+.weight-alert { margin-bottom: 14px; cursor: default; }
+.weight-alert:hover { transform: none; box-shadow: var(--shadow); }
+
+/* --- Календарь таблеток / настроения — навигация по месяцу ------------ */
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.month-nav .month-label { font-weight: 650; font-size: 1rem; letter-spacing: -0.01em; }
+
+/* --- Календарь таблеток ------------------------------------------------ */
+
+.meds-table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+table.meds-calendar { box-shadow: none; border: none; min-width: 720px; }
+table.meds-calendar th, table.meds-calendar td {
+  text-align: center;
+  padding: 7px 5px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+table.meds-calendar th:first-child, table.meds-calendar td.med-name-cell {
+  text-align: left;
+  min-width: 190px;
+  white-space: normal;
+}
+table.meds-calendar th.today { color: var(--accent-deep); font-weight: 700; }
+table.meds-calendar td.today { background: var(--accent-soft); }
+table.meds-calendar td.inactive { background: var(--bg-tint); }
+.med-name { font-weight: 600; font-size: 0.86rem; }
+
+form.dose-form { display: inline-block; margin: 1px; }
+.dose-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.1s ease;
+}
+.dose-dot:hover { border-color: var(--accent); }
+.dose-dot:active { transform: scale(0.9); }
+.dose-dot.taken { background: var(--accent); border-color: var(--accent); }
+
+/* --- Календарь настроения ---------------------------------------------- */
+
+.mood-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.mood-day {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  box-shadow: var(--shadow);
+}
+.mood-day.today { border-color: var(--accent); }
+.mood-day summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.85rem;
+}
+.mood-day summary::-webkit-details-marker { display: none; }
+.mood-day summary::before { content: none; }
+.mood-daynum { color: var(--text-muted); }
+.mood-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex: none;
+}
+.mood-day form {
+  margin-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mood-day form select, .mood-day form input[type="text"] {
+  padding: 6px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+.mood-day form .btn { padding: 6px 14px; font-size: 0.8rem; align-self: flex-start; }
+
+.mood-dot[data-mood="весёлый"], .mood-summary-bar[data-mood="весёлый"] { background: var(--accent); }
+.mood-dot[data-mood="игривый"], .mood-summary-bar[data-mood="игривый"] { background: var(--accent-deep); }
+.mood-dot[data-mood="спокойный"], .mood-summary-bar[data-mood="спокойный"] { background: var(--mood-calm); }
+.mood-dot[data-mood="сонный"], .mood-summary-bar[data-mood="сонный"] { background: var(--unknown); }
+.mood-dot[data-mood="вялый"], .mood-summary-bar[data-mood="вялый"] { background: var(--low); }
+.mood-dot[data-mood="грустный"], .mood-summary-bar[data-mood="грустный"] { background: var(--text-muted); }
+.mood-dot[data-mood="тревожный"], .mood-summary-bar[data-mood="тревожный"] { background: var(--mood-anxious); }
+.mood-dot[data-mood="больной"], .mood-summary-bar[data-mood="больной"] { background: var(--high); }
+
+.mood-summary { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.mood-summary-row { display: grid; grid-template-columns: 92px 1fr 28px; align-items: center; gap: 10px; }
+.mood-summary-label { font-size: 0.82rem; color: var(--text-muted); }
+.mood-summary-bar-wrap { background: var(--bg-tint); border-radius: 999px; height: 10px; overflow: hidden; }
+.mood-summary-bar { height: 100%; border-radius: 999px; }
+.mood-summary-count { font-size: 0.8rem; color: var(--text-muted); text-align: right; }
+
+@media (max-width: 640px) {
+  .mood-grid { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); }
+  .mood-summary-row { grid-template-columns: 76px 1fr 26px; }
+}
+
+
+/* --- Цвета членов семьи ---------------------------------------------
+   Свой оттенок у каждого: на общих экранах (карта, лента, документы)
+   взгляд находит нужного человека раньше, чем прочитает имя.
+   Оттенки приглушённые — это по-прежнему медицинский интерфейс, а не
+   детская раскраска, и терракотовый по-прежнему значит «вне нормы»
+   и ничего больше.                                                      */
+
+:root {
+  --p-me: #c8809b;          /* первый человек — розовый */
+  --p-me-soft: #f7e8ee;
+  --p-husband: #6f93b8;     /* второй человек — голубой */
+  --p-husband-soft: #e6eef6;
+  --p-dog: #94c04a;         /* собака — салатовый */
+  --p-dog-soft: #eef6e0;
+}
+
+.subject-me { --subject: var(--p-me); --subject-soft: var(--p-me-soft); }
+.subject-husband { --subject: var(--p-husband); --subject-soft: var(--p-husband-soft); }
+.subject-dog { --subject: var(--p-dog); --subject-soft: var(--p-dog-soft); }
+
+.subject-dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--subject, var(--accent));
+  margin-right: 7px;
+  vertical-align: baseline;
+  flex: none;
+}
+
+/* --- Главная: курсы лекарств ----------------------------------------- */
+
+.course-card { display: block; color: inherit; }
+.course-card:hover { text-decoration: none; }
+.course-top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 10px; margin-bottom: 10px; font-weight: 600;
+}
+.course-pct { color: var(--accent-deep); font-size: 1.15rem; letter-spacing: -0.02em; }
+.course-bar { height: 8px; border-radius: 999px; background: var(--bg-tint); overflow: hidden; }
+.course-bar > span {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--subject, var(--accent)); transition: width 0.3s ease;
+}
+
+/* --- Карта обследований по месяцам ----------------------------------- */
+
+.heat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px 10px;
+  display: grid;
+  gap: 14px;
+  position: relative;
+}
+.heat-row { display: grid; gap: 7px; }
+.heat-name { font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; }
+
+/* Клетки тянутся на всю ширину: месяцев около сотни, фиксированный
+   размер either не влезет, either оставит пустое поле справа. */
+.heat-cells {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  height: 26px;
+}
+.heat-cell {
+  border-radius: 3px;
+  background: var(--bg-tint);
+  transition: transform 0.12s ease;
+}
+.heat-cell.lv1 { background: color-mix(in srgb, var(--subject, var(--accent)) 30%, var(--surface)); }
+.heat-cell.lv2 { background: color-mix(in srgb, var(--subject, var(--accent)) 55%, var(--surface)); }
+.heat-cell.lv3 { background: color-mix(in srgb, var(--subject, var(--accent)) 78%, var(--surface)); }
+.heat-cell.lv4 { background: var(--subject, var(--accent)); }
+/* Январь — тонкая засечка слева, чтобы годы читались без отдельной оси. */
+.heat-cell.yr { box-shadow: inset 1px 0 0 var(--border-strong); }
+.heat-cell:hover { transform: scaleY(1.25); }
+
+.heat-axis { position: relative; height: 16px; }
+.heat-year {
+  position: absolute;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  transform: translateX(-1px);
+}
+
+@media (max-width: 640px) {
+  .heat-cells { height: 20px; gap: 1px; }
+  .heat-year { font-size: 0.6rem; }
+}
+
+/* Карточка человека на главной: цветная полоска слева вместо подписи. */
+.subject-card { border-left: 4px solid var(--subject, var(--border-strong)); }
+.subject-card h3 { display: flex; align-items: center; }
+h1 .subject-dot { width: 12px; height: 12px; margin-right: 11px; }
+
+/* Имя человека набирается его цветом: на общих экранах — главной, карте,
+   списке документов — глаз находит нужного раньше, чем дочитает строку.
+   Цвет только на имени; значения и цифры остаются нейтральными, иначе
+   терракотовый «вне нормы» перестанет выделяться. */
+.heat-name,
+.subject-card h3 a,
+.watch-subject,
+h1.subject-me, h1.subject-husband, h1.subject-dog,
+.course-top > span:first-child {
+  color: var(--subject, var(--text));
+}
+.subject-card h3 a:hover { color: var(--subject, var(--accent-deep)); }
+/* Имя субъекта в таблицах — тоже своим цветом. */
+td a[class^="subject-"], td a[class*=" subject-"] { color: var(--subject, var(--accent-deep)); }
+
+/* --- Последние анализы: карточка на документ, а не строка на показатель */
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.doc-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--subject, var(--accent));
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  color: inherit;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.doc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  text-decoration: none;
+}
+.doc-card-top {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; margin-bottom: 7px;
+}
+.doc-card-date { font-size: 0.78rem; color: var(--text-muted); }
+.doc-card-title { font-weight: 600; font-size: 0.94rem; line-height: 1.35; }
+.doc-card-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; }
+
+/* --- Подложка в цвете человека ---------------------------------------
+   Очень слабая заливка: достаточно, чтобы «свой» блок узнавался боковым
+   зрением, и недостаточно, чтобы спорить с терракотовыми отклонениями. */
+
+.subject-card,
+.course-card,
+.heat-row {
+  background: color-mix(in srgb, var(--subject-soft, var(--surface)) 60%, var(--surface));
+}
+.subject-me .doc-card, .subject-husband .doc-card, .subject-dog .doc-card {
+  background: color-mix(in srgb, var(--subject-soft) 45%, var(--surface));
+}
+.heat-row { border-radius: var(--radius-sm); padding: 8px 10px; margin: 0 -10px; }
+/* Заголовок профиля — цветом человека (обёртка .subject-page задаёт --subject) */
+.subject-page h1 { color: var(--subject, var(--text)); display: flex; align-items: center; }
+.subject-page h1 .subject-dot { width: 13px; height: 13px; margin-right: 12px; }
+
+/* --- Настроение: цвет по группе состояния ---------------------------- */
+
+.mood-good    { background: var(--accent) !important; }
+.mood-neutral { background: var(--border-strong) !important; }
+.mood-low     { background: var(--high) !important; }
+.mood-none    { background: var(--bg-tint) !important; }
+
+.mood-dot.mood-good    { box-shadow: 0 0 0 3px var(--accent-soft); }
+.mood-dot.mood-low     { box-shadow: 0 0 0 3px var(--high-soft); }
+
+/* Легенда групп над календарём */
+.mood-legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 0 0 14px; font-size: 0.8rem; color: var(--text-muted); }
+.mood-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.mood-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+/* --- Сводка на профиле ------------------------------------------------ */
+
+.summary {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+@media (max-width: 780px) { .summary { grid-template-columns: 1fr; } }
+
+.summary-main, .summary-actions, .doctor-note {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+.summary-main { border-left: 4px solid var(--subject, var(--accent)); }
+
+.summary-h { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;
+             color: var(--text-muted); margin: 0 0 12px; }
+
+.summary-facts { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.summary-facts .fact { font-size: 0.98rem; line-height: 1.45; }
+.fact-ok { color: var(--accent-deep); }
+
+.fact-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.fact-chip {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-tint);
+  color: var(--text);
+  white-space: nowrap;
+}
+.fact-chip.flag-high, .fact-chip.flag-low { background: var(--high-soft); color: var(--high); }
+.fact-chip:hover { text-decoration: none; filter: brightness(0.97); }
+
+.summary-actions ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 11px; }
+.summary-actions li { display: grid; gap: 2px; }
+.act-text { font-size: 0.92rem; font-weight: 550; }
+.act-why { font-size: 0.78rem; color: var(--text-muted); }
+
+.summary-note { font-size: 0.75rem; color: var(--text-muted); margin: 13px 0 0; }
+
+.doctor-notes { margin-bottom: 24px; }
+.doctor-note { margin-bottom: 10px; }
+.doctor-note-src { font-size: 0.8rem; color: var(--text-muted); }
+.doctor-note ul { margin: 9px 0 0; padding-left: 20px; display: grid; gap: 5px; }
+.doctor-note li { font-size: 0.9rem; line-height: 1.45; }

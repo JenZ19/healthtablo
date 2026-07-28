@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Входящие — Семейный хаб здоровья{% endblock %}
+{% block content %}
+<h1>Входящие</h1>
+
+<h2>Ещё не разобрано ({{ pending|length }})</h2>
+{% if pending %}
+<ul>
+  {% for name in pending %}
+  <li>{{ name }}</li>
+  {% endfor %}
+</ul>
+<form method="post" action="/inbox/ingest-all">
+  <button class="btn" type="submit">Разобрать всё</button>
+</form>
+{% else %}
+<p class="empty-state">В папке inbox/ новых файлов нет.</p>
+{% endif %}
+
+<h2>Требует разбора ({{ needs_review|length }})</h2>
+{% if needs_review %}
+{% for d in needs_review %}
+<div class="card" style="margin-bottom:12px;">
+  <p><strong>{{ d.title or d.stored_path }}</strong> <span class="muted">добавлен {{ d.added_at }}</span></p>
+  <p class="muted">лаборатория: {{ d.lab_name or '—' }} · дата: {{ d.doc_date or '—' }} · заметка: {{ d.parse_note or '—' }}</p>
+  <form class="inline-form" method="post" action="/documents/{{ d.id }}/assign">
+    <label>Субъект
+      <select name="subject">
+        <option value="">— выбрать —</option>
+        {% for s in subjects %}
+        <option value="{{ s.slug }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Дата документа <input type="date" name="doc_date" value="{{ d.doc_date or '' }}"></label>
+    <div class="submit-cell"><button class="btn" type="submit">Назначить</button></div>
+  </form>
+</div>
+{% endfor %}
+{% else %}
+<p class="empty-state">Проблемных документов нет.</p>
+{% endif %}
+{% endblock %}

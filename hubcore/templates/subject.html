@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+{% block title %}{{ subject.name }} — Семейный хаб здоровья{% endblock %}
+{% block content %}
+<div class="subject-page subject-{{ subject.slug }}">
+<h1><span class="subject-dot"></span>{{ subject.name }}</h1>
+<div class="section-tabs">
+  <a class="active" href="/s/{{ subject.slug }}">Профиль</a>
+  <a href="/s/{{ subject.slug }}/timeline">Лента</a>
+  <a href="/s/{{ subject.slug }}/labs">Все анализы</a>
+  <a href="/s/{{ subject.slug }}/meds">Таблетки</a>
+  <a href="/s/{{ subject.slug }}/mood">Настроение</a>
+</div>
+
+{% if summary %}
+<section class="summary">
+  <div class="summary-main">
+    <h2 class="summary-h">Коротко</h2>
+    <ul class="summary-facts">
+      {% for f in summary.facts %}
+      <li class="fact fact-{{ f.kind }}">
+        {{ f.text }}
+        {% if f.chips %}
+        <div class="fact-chips">
+          {% for it in f.chips %}
+          <a class="fact-chip flag-{{ it.flag }}" href="/s/{{ subject.slug }}/marker/{{ it.code }}">
+            {{ it.name }} <b>{{ it.value }}</b>{% if it.pct %} {{ '↑' if it.dir == 'выше' else '↓' }}{{ it.pct }}%{% endif %}
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% if summary.actions %}
+  <div class="summary-actions">
+    <h2 class="summary-h">Что можно сделать</h2>
+    <ul>
+      {% for a in summary.actions %}
+      <li><span class="act-text">{{ a.text }}</span><span class="act-why">{{ a.why }}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="summary-note">Это организационные подсказки по срокам, а не медицинские назначения.</p>
+  </div>
+  {% endif %}
+</section>
+
+{% if summary.doctor_notes %}
+<section class="doctor-notes">
+  <h2 class="summary-h">Что назначил врач</h2>
+  {% for d in summary.doctor_notes %}
+  <div class="doctor-note">
+    <a class="doctor-note-src" href="/document/{{ d.doc_id }}">{{ d.title or 'документ' }} · {{ d.date|fmt_date }}</a>
+    <ul>{% for it in d.lines %}<li>{{ it }}</li>{% endfor %}</ul>
+  </div>
+  {% endfor %}
+  <p class="summary-note">Цитаты из ваших документов, дословно. Хаб их не сочиняет и не дополняет.</p>
+</section>
+{% endif %}
+{% endif %}
+
+<div class="card">
+  <h3>Паспорт</h3>
+  <p class="muted">
+    {% if subject.kind == 'dog' %}
+      Собака{% if subject.breed %}, порода: {{ subject.breed }}{% endif %}
+    {% else %}
+      {% set s = (subject.sex or '')|lower %}
+      {{ 'Мужчина' if s in ['male', 'м', 'муж', 'мужской'] else ('Женщина' if s in ['female', 'ж', 'жен', 'женский'] else 'Пол не указан') }}
+    {% endif %}
+    {% if age %} · Возраст: {{ age }}{% endif %}
+    {% if subject.birthdate %} · Дата рождения: {{ subject.birthdate|fmt_date }}{% endif %}
+  </p>
+  <details>
+    <summary class="muted">Редактировать</summary>
+    <form class="inline-form" method="post" action="/s/{{ subject.slug }}/edit">
+      <label>Имя <input type="text" name="name" value="{{ subject.name }}" required></label>
+      {% if subject.kind != 'dog' %}
+      <label>Пол
+        <select name="sex">
+          <option value="" {{ 'selected' if not subject.sex }}>—</option>
+          <option value="female" {{ 'selected' if s in ['female', 'ж', 'жен', 'женский'] }}>женский</option>
+          <option value="male" {{ 'selected' if s in ['male', 'м', 'муж', 'мужской'] }}>мужской</option>
+        </select>
+      </label>
+      {% else %}
+      <label>Порода <input type="text" name="breed" value="{{ subject.breed or '' }}"></label>
+      <input type="hidden" name="sex" value="">
+      {% endif %}
+      <label>Дата рождения <input type="date" name="birthdate" value="{{ subject.birthdate or '' }}"></label>
+      <input type="hidden" name="species" value="{{ subject.species or '' }}">
+      <label>Заметки / варианты ФИО (для сопоставления документов)
+        <input type="text" name="notes" value="{{ subject.notes or '' }}">
+      </label>
+      <div class="submit-cell"><button class="btn" type="submit">Сохранить</button></div>
+    </form>
+  </details>
+</div>
+
+{% if subject.kind == 'dog' %}
+<h2>Профилактика: сроки</h2>
+{% if vet_due %}
+<div class="watch-grid">
+  {% for v in vet_due %}
+  <div class="watch-card {% if v.overdue %}alert{% elif v.soon %}stale{% endif %}">
+    <div class="watch-top">
+      <span class="watch-subject">{{ v.label }}</span>
+      <span class="watch-date">{{ v.last|fmt_date }}</span>
+    </div>
+    <div class="watch-value">
+      {% if v.overdue %}просрочено на {{ -v.days_left }} дн.
+      {% elif v.soon %}через {{ v.days_left }} дн.
+      {% else %}через {{ (v.days_left / 30)|round|int }} мес.{% endif %}
+    </div>
+    <div class="watch-why">с последнего раза прошло {{ (v.passed / 30)|round|int }} мес.</div>
+  </div>
+  {% endfor %}
+</div>
+<p class="muted" style="font-size:0.8rem;">
+  Интервалы взяты общепринятые: бешенство и комплексная вакцинация — раз в год,
+  обработки от паразитов — раз в квартал. Точную схему назначает врач.
+</p>
+{% else %}
+<p class="empty-state">Пока нет ни одной записи — ни в документах, ни добавленной руками.</p>
+{% endif %}
+
+<details>
+  <summary class="muted">Добавить запись профилактики</summary>
+  <form class="inline-form" method="post" action="/s/{{ subject.slug }}/prophylaxis">
+    <label>Тип
+      <select name="kind">
+        <option value="глисты">проглистовка</option>
+        <option value="паразиты">антипаразитарная обработка</option>
+        <option value="вакцинация">вакцинация</option>
+      </select>
+    </label>
+    <label>Дата <input type="date" name="date" required></label>
+    <label>Препарат <input type="text" name="drug"></label>
+    <label>Заметка <input type="text" name="note"></label>
+    <div class="submit-cell"><button class="btn" type="submit">Добавить</button></div>
+  </form>
+</details>
+
+{% if prophylaxis_records %}
+<table>
+  <tr><th>Дата</th><th>Тип</th><th>Препарат</th><th>Заметка</th><th></th></tr>
+  {% for p in prophylaxis_records %}
+  <tr>
+    <td>{{ p.date|fmt_date }}</td>
+    <td>{{ p.kind }}</td>
+    <td>{{ p.drug or '—' }}</td>
+    <td>{{ p.note or '' }}</td>
+    <td>
+      <form method="post" action="/s/{{ subject.slug }}/prophylaxis/{{ p.id }}/delete" data-confirm="Удалить запись?">
+        <button class="btn secondary" type="submit">Удалить</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% endif %}
+
+{% if sparklines %}
+<h2>Динамика важного</h2>
+<div class="spark-grid">
+  {% for sp in sparklines %}
+  <a class="spark-card" href="/s/{{ subject.slug }}/marker/{{ sp.analyte.code }}">
+    <div class="spark-name">{{ sp.analyte.name_ru }}</div>
+    {{ sp.svg|safe }}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Ключевые маркеры</h2>
+{% if tiles %}
+<div class="tile-grid">
+  {% for t in tiles %}
+  <a class="tile" href="/s/{{ subject.slug }}/marker/{{ t.analyte.code }}" style="display:block;">
+    <div class="tile-name">{{ t.analyte.name_ru }}</div>
+    <div class="tile-value flag-{{ t.latest.flag }}">{{ t.latest.value_num|fmt_num if t.latest.value_num is not none else t.latest.value_text }} {{ t.latest.unit or '' }}<span class="tile-trend">{{ t.trend }}</span></div>
+    <div class="muted" style="font-size:0.78rem;">{{ t.latest.taken_at|fmt_date }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty-state">Пока нет ни одного результата анализов.</p>
+{% endif %}
+
+<h2>Активные состояния</h2>
+{% if conditions %}
+<table>
+  <tr><th>Название</th><th>Статус</th><th>Начало</th><th>Тяжесть</th><th>Заметки</th></tr>
+  {% for c in conditions %}
+  <tr>
+    <td>{{ c.name }}</td>
+    <td>{{ c.status }}</td>
+    <td>{{ c.onset_date|fmt_date }}</td>
+    <td>{{ c.severity or '—' }}</td>
+    <td>{{ c.notes or '' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Состояний не отмечено.</p>
+{% endif %}
+<details>
+  <summary class="muted">Добавить состояние</summary>
+  <form class="inline-form" method="post" action="/s/{{ subject.slug }}/conditions/add">
+    <label>Название <input type="text" name="name" required></label>
+    <label>Статус
+      <select name="status">
+        <option value="active">активно</option>
+        <option value="resolved">разрешилось</option>
+        <option value="chronic">хроническое</option>
+      </select>
+    </label>
+    <label>Дата начала <input type="date" name="onset_date"></label>
+    <label>Тяжесть <input type="text" name="severity"></label>
+    <label>Заметки <input type="text" name="notes"></label>
+    <div class="submit-cell"><button class="btn" type="submit">Добавить</button></div>
+  </form>
+</details>
+
+<h2>Лекарства</h2>
+{% if medications %}
+<table>
+  <tr><th>Название</th><th>Дозировка</th><th>Схема</th><th>Начало</th><th>Окончание</th><th>Причина</th></tr>
+  {% for m in medications %}
+  <tr>
+    <td>{{ m.name }}</td>
+    <td>{{ m.dose or '—' }}</td>
+    <td>{{ m.schedule or '—' }}</td>
+    <td>{{ m.started|fmt_date }}</td>
+    <td>{{ m.ended|fmt_date if m.ended else 'принимает' }}</td>
+    <td>{{ m.reason or '' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Лекарства не отмечены.</p>
+{% endif %}
+<details>
+  <summary class="muted">Добавить лекарство</summary>
+  <form class="inline-form" method="post" action="/s/{{ subject.slug }}/medications/add">
+    <label>Название <input type="text" name="name" required></label>
+    <label>Дозировка <input type="text" name="dose"></label>
+    <label>Схема приёма <input type="text" name="schedule"></label>
+    <label>Начало <input type="date" name="started"></label>
+    <label>Окончание <input type="date" name="ended"></label>
+    <label>Причина <input type="text" name="reason"></label>
+    <div class="submit-cell"><button class="btn" type="submit">Добавить</button></div>
+  </form>
+</details>
+
+<h2>Вес</h2>
+{% if weight_alert and weight_alert.over %}
+<div class="watch-card stale weight-alert">
+  <div class="watch-title">Вес выше породного коридора ({{ weight_alert.low|fmt_num }}–{{ weight_alert.high|fmt_num }} кг)</div>
+  <div class="watch-value">на {{ weight_alert.pct }}% · {{ weight_alert.over_kg|fmt_num }} кг до верхней границы нормы</div>
+  <div class="watch-why">Только факт — схему снижения веса определяет ветеринар.</div>
+</div>
+{% endif %}
+{% if weight_svg %}{{ weight_svg|safe }}{% endif %}
+{% if weight_rows %}
+<table>
+  <tr><th>Дата</th><th>Вес</th><th>Заметка</th></tr>
+  {% for w in weight_rows %}
+  <tr>
+    <td>{{ w.date|fmt_date }}</td>
+    <td>{{ w.kg|fmt_num }} кг</td>
+    <td>{{ w.note or '' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Вес пока не отмечен.</p>
+{% endif %}
+<details>
+  <summary class="muted">Добавить запись веса</summary>
+  <form class="inline-form" method="post" action="/s/{{ subject.slug }}/weights/add">
+    <label>Дата <input type="date" name="date" required></label>
+    <label>Вес, кг <input type="number" step="0.1" name="kg" required></label>
+    <label>Заметка <input type="text" name="note"></label>
+    <div class="submit-cell"><button class="btn" type="submit">Добавить</button></div>
+  </form>
+</details>
+
+<h2>Питание</h2>
+{% if current_feeding %}
+<div class="card feeding-card">
+  <div class="feeding-food">{{ current_feeding.food }}</div>
+  <p class="muted">
+    {% if current_feeding.portion_g %}{{ current_feeding.portion_g|fmt_num }} г{% endif %}
+    {% if current_feeding.times_per_day %} × {{ current_feeding.times_per_day }} раз(а) в день{% endif %}
+    {% if current_feeding.portion_g and current_feeding.times_per_day %}
+    — суточная норма: <b>{{ (current_feeding.portion_g * current_feeding.times_per_day)|fmt_num }} г/сутки</b>
+    {% endif %}
+  </p>
+  {% if current_feeding.note %}<p class="muted">{{ current_feeding.note }}</p>{% endif %}
+  {% if current_feeding.started %}<p class="muted" style="font-size:0.78rem;">с {{ current_feeding.started|fmt_date }}</p>{% endif %}
+</div>
+{% else %}
+<p class="empty-state">Питание пока не отмечено.</p>
+{% endif %}
+<details>
+  <summary class="muted">Добавить/сменить корм</summary>
+  <form class="inline-form" method="post" action="/s/{{ subject.slug }}/feeding">
+    <label>Корм <input type="text" name="food" required></label>
+    <label>Порция, г <input type="number" step="0.1" name="portion_g"></label>
+    <label>Приёмов в день <input type="number" step="1" name="times_per_day"></label>
+    <label>Дата начала <input type="date" name="started"></label>
+    <label>Заметка <input type="text" name="note"></label>
+    <div class="submit-cell"><button class="btn" type="submit">Сохранить</button></div>
+  </form>
+</details>
+{% if feeding_rows|length > 1 %}
+<table>
+  <tr><th>Дата начала</th><th>Корм</th><th>Порция</th><th>Приёмов/день</th><th>Заметка</th><th></th></tr>
+  {% for f in feeding_rows[1:] %}
+  <tr>
+    <td>{{ f.started|fmt_date if f.started else '—' }}</td>
+    <td>{{ f.food }}</td>
+    <td>{{ f.portion_g|fmt_num if f.portion_g is not none else '—' }} г</td>
+    <td>{{ f.times_per_day or '—' }}</td>
+    <td>{{ f.note or '' }}</td>
+    <td>
+      <form method="post" action="/s/{{ subject.slug }}/feeding/{{ f.id }}/delete" data-confirm="Удалить запись?">
+        <button class="btn secondary" type="submit">Удалить</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Последние анализы</h2>
+{% if recent_lab_docs %}
+<div class="doc-grid">
+  {% for d in recent_lab_docs %}
+  <a class="doc-card" href="/document/{{ d.id }}">
+    <div class="doc-card-top">
+      <span class="doc-card-date">{{ d.doc_date|fmt_date }}</span>
+      {% if d.n_abnormal %}
+      <span class="badge high">{{ d.n_abnormal }} вне нормы</span>
+      {% elif d.n_results %}
+      <span class="badge normal">в норме</span>
+      {% endif %}
+    </div>
+    <div class="doc-card-title">{{ d.title or d.lab_name or 'Документ' }}</div>
+    <div class="doc-card-meta">
+      {% if d.lab_name and d.title != d.lab_name %}{{ d.lab_name }} · {% endif %}
+      {% if d.n_results %}показателей: {{ d.n_results }}{% else %}без числовых показателей{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty-state">Анализов пока нет.</p>
+{% endif %}
+
+<h2>Недавние события</h2>
+{% if events %}
+<ul class="timeline-list">
+  {% for e in events %}
+  <li>
+    <div class="timeline-date">{{ e.date|fmt_date }}</div>
+    <div class="timeline-type">{{ e.type }}</div>
+    <div>{{ e.title }}</div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state">Событий пока нет.</p>
+{% endif %}
+<details>
+  <summary class="muted">Добавить событие</summary>
+  <form class="inline-form" method="post" action="/s/{{ subject.slug }}/events/add">
+    <label>Дата <input type="date" name="date" required></label>
+    <label>Тип
+      <select name="type">
+        <option value="визит">визит</option>
+        <option value="симптом">симптом</option>
+        <option value="процедура">процедура</option>
+        <option value="прививка">прививка</option>
+      </select>
+    </label>
+    <label>Название <input type="text" name="title" required></label>
+    <label>Подробности <input type="text" name="details"></label>
+    <div class="submit-cell"><button class="btn" type="submit">Добавить</button></div>
+  </form>
+</details>
+
+<h2>Заметка</h2>
+<form class="inline-form" method="post" action="/s/{{ subject.slug }}/notes/add">
+  <label>Дата <input type="date" name="date"></label>
+  <label>Заголовок <input type="text" name="title"></label>
+  <label>Текст <input type="text" name="body" required></label>
+  <div class="submit-cell"><button class="btn" type="submit">Сохранить заметку</button></div>
+</form>
+</div>
+{% endblock %}

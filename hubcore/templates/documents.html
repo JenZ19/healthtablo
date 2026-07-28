@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Документы — Семейный хаб здоровья{% endblock %}
+{% block content %}
+<h1>Документы</h1>
+
+<form class="filters" method="get">
+  <select name="subject" onchange="this.form.submit()">
+    <option value="">Все субъекты</option>
+    {% for s in subjects %}
+    <option value="{{ s.slug }}" {{ 'selected' if s.slug == selected_subject }}>{{ s.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="kind" onchange="this.form.submit()">
+    <option value="">Все типы</option>
+    {% for k in kinds %}
+    <option value="{{ k }}" {{ 'selected' if k == selected_kind }}>{{ k }}</option>
+    {% endfor %}
+  </select>
+  <select name="source" onchange="this.form.submit()">
+    <option value="">Все источники</option>
+    {% for s in sources %}
+    <option value="{{ s }}" {{ 'selected' if s == selected_source }}>{{ s }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+{% if rows %}
+<table>
+  <tr><th>Дата</th><th>Название</th><th>Субъект</th><th>Тип</th><th>Источник</th><th>Лаборатория</th><th></th></tr>
+  {% for d in rows %}
+  <tr>
+    <td>{{ d.doc_date|fmt_date }}</td>
+    <td>{{ d.title or '—' }}</td>
+    <td>{% if d.subject_slug %}<a class="subject-{{ d.subject_slug }}" href="/s/{{ d.subject_slug }}"><span class="subject-dot"></span>{{ d.subject_name }}</a>{% else %}<span class="muted">не определён</span>{% endif %}</td>
+    <td>{{ d.kind }}</td>
+    <td>{{ d.source }}</td>
+    <td>{{ d.lab_name or '—' }}</td>
+    <td><a href="/document/{{ d.id }}">оригинал</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Документов по выбранным фильтрам нет.</p>
+{% endif %}
+{% endblock %}

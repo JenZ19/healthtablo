@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Лента — {{ subject.name }}{% endblock %}
+{% block content %}
+<div class="subject-page subject-{{ subject.slug }}">
+<h1>{{ subject.name }}</h1>
+<div class="section-tabs">
+  <a href="/s/{{ subject.slug }}">Профиль</a>
+  <a class="active" href="/s/{{ subject.slug }}/timeline">Лента</a>
+  <a href="/s/{{ subject.slug }}/labs">Все анализы</a>
+  <a href="/s/{{ subject.slug }}/meds">Таблетки</a>
+  <a href="/s/{{ subject.slug }}/mood">Настроение</a>
+</div>
+
+{% if items %}
+<ul class="timeline-list">
+  {% for i in items %}
+  <li>
+    <div class="timeline-date">{{ i.date|fmt_date }}</div>
+    <div class="timeline-type">{{ i.type }}</div>
+    <div>
+      {% if i.type == 'документ' %}
+        <a href="/document/{{ i.ref.id }}">{{ i.title }}</a>
+      {% else %}
+        {{ i.title }}
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state">Пока нечего показать.</p>
+{% endif %}
+</div>
+{% endblock %}

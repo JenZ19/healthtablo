@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Настроение — {{ subject.name }}{% endblock %}
+{% block content %}
+<div class="subject-page subject-{{ subject.slug }}">
+<h1>{{ subject.name }}</h1>
+<div class="section-tabs">
+  <a href="/s/{{ subject.slug }}">Профиль</a>
+  <a href="/s/{{ subject.slug }}/timeline">Лента</a>
+  <a href="/s/{{ subject.slug }}/labs">Все анализы</a>
+  <a href="/s/{{ subject.slug }}/meds">Таблетки</a>
+  <a class="active" href="/s/{{ subject.slug }}/mood">Настроение</a>
+</div>
+
+<div class="month-nav">
+  <a class="btn secondary" href="/s/{{ subject.slug }}/mood?year={{ prev_year }}&month={{ prev_month }}">← пред. месяц</a>
+  <div class="month-label">{{ month_label }}</div>
+  <a class="btn secondary" href="/s/{{ subject.slug }}/mood?year={{ next_year }}&month={{ next_month }}">след. месяц →</a>
+</div>
+
+<p class="mood-legend">
+  <span><i class="mood-good"></i>хорошее</span>
+  <span><i class="mood-neutral"></i>нейтральное</span>
+  <span><i class="mood-low"></i>тяжёлое</span>
+</p>
+<div class="mood-grid">
+  {% for d in days %}
+  {% set rec = by_date.get(d.isoformat()) %}
+  <details class="mood-day {{ 'today' if d == today }}">
+    <summary>
+      <span class="mood-daynum">{{ d.day }}</span>
+      <span class="mood-dot mood-{{ group_of.get(rec.mood, '') if rec else 'none' }}"
+            data-mood="{{ rec.mood if rec else '' }}"></span>
+    </summary>
+    <form method="post" action="/s/{{ subject.slug }}/mood/set">
+      <input type="hidden" name="date" value="{{ d.isoformat() }}">
+      <input type="hidden" name="year" value="{{ year }}">
+      <input type="hidden" name="month" value="{{ month }}">
+      <select name="mood" required>
+        <option value="">выбрать…</option>
+        {% for mood, grp in moods %}
+        <option value="{{ mood }}" {{ 'selected' if rec and rec.mood == mood }}>{{ mood }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="note" placeholder="заметка" value="{{ rec.note if rec and rec.note else '' }}">
+      <button class="btn" type="submit">Сохранить</button>
+    </form>
+  </details>
+  {% endfor %}
+</div>
+
+<h2>Сводка за месяц</h2>
+{% if total_marked %}
+<div class="mood-summary">
+  {% for mood, grp in moods %}
+  {% if counts.get(mood) %}
+  <div class="mood-summary-row">
+    <span class="mood-summary-label">{{ mood }}</span>
+    <div class="mood-summary-bar-wrap">
+      <div class="mood-summary-bar mood-{{ grp }}" style="width: {{ (counts[mood] / total_marked * 100)|round(1) }}%;"></div>
+    </div>
+    <span class="mood-summary-count">{{ counts[mood] }}</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty-state">За этот месяц отметок пока нет.</p>
+{% endif %}
+</div>
+{% endblock %}

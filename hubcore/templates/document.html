@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title or 'Документ' }}{% endblock %}
+
+{% block content %}
+<h1>{{ doc.title or 'Документ' }}</h1>
+
+<p class="muted">
+  {{ doc.doc_date|fmt_date }}
+  {% if doc.lab_name %} · {{ doc.lab_name }}{% endif %}
+  {% if doc.subject_name %} · <a href="/s/{{ doc.subject_slug }}">{{ doc.subject_name }}</a>{% endif %}
+  {% if doc.page_count %} · страниц: {{ doc.page_count }}{% endif %}
+</p>
+
+{% if doc.parse_note %}
+<p class="muted" style="font-size:0.86rem;">{{ doc.parse_note }}</p>
+{% endif %}
+
+<div class="pill-row" style="margin-bottom:18px;">
+  <a class="btn secondary" href="/file/{{ doc.id }}" download>Скачать оригинал</a>
+  {% if doc.subject_slug %}
+  <a class="btn secondary" href="/s/{{ doc.subject_slug }}/timeline">В ленту</a>
+  {% endif %}
+</div>
+
+{% if viewer == 'pdf' %}
+  <object class="doc-viewer" data="/preview/{{ doc.id }}" type="application/pdf">
+    <p class="empty-state">Не удалось показать PDF во встроенном просмотрщике.
+      <a href="/file/{{ doc.id }}">Открыть файл</a>.</p>
+  </object>
+{% elif viewer == 'image' %}
+  <a href="/preview/{{ doc.id }}" title="Открыть в полный размер">
+    <img class="doc-viewer-img" src="/preview/{{ doc.id }}" alt="{{ doc.title or 'Документ' }}">
+  </a>
+{% else %}
+  <p class="empty-state">Для этого типа файла встроенный просмотр недоступен.</p>
+{% endif %}
+
+{% if results %}
+<h2>Что извлечено ({{ results|length }})</h2>
+<table>
+  <thead>
+    <tr><th>Маркер</th><th>Значение</th><th>Референс</th><th>Флаг</th></tr>
+  </thead>
+  <tbody>
+  {% for r in results %}
+    <tr>
+      <td>
+        {% if r.analyte_code and doc.subject_slug %}
+          <a href="/s/{{ doc.subject_slug }}/marker/{{ r.analyte_code }}">{{ r.analyte_name or r.raw_name }}</a>
+        {% else %}
+          {{ r.raw_name }} <span class="muted">(не сопоставлено)</span>
+        {% endif %}
+      </td>
+      <td class="flag-{{ r.flag }}">
+        {{ r.value_num|fmt_num if r.value_num is not none else (r.value_text or '—') }}
+        {{ r.unit or '' }}
+      </td>
+      <td class="muted">{{ r.ref_text or '—' }}</td>
+      <td><span class="badge {{ r.flag }}">{{ {'low':'ниже','high':'выше','normal':'норма','unknown':'—'}[r.flag] }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if doc.raw_text %}
+<h2>Текст документа</h2>
+<details>
+  <summary class="muted">Показать распознанный текст</summary>
+  <pre class="raw-text">{{ doc.raw_text }}</pre>
+</details>
+{% endif %}
+{% endblock %}

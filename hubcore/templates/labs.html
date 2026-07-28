@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Анализы — {{ subject.name }}{% endblock %}
+{% block content %}
+<div class="subject-page subject-{{ subject.slug }}">
+<h1>{{ subject.name }}</h1>
+<div class="section-tabs">
+  <a href="/s/{{ subject.slug }}">Профиль</a>
+  <a href="/s/{{ subject.slug }}/timeline">Лента</a>
+  <a class="active" href="/s/{{ subject.slug }}/labs">Все анализы</a>
+  <a href="/s/{{ subject.slug }}/meds">Таблетки</a>
+  <a href="/s/{{ subject.slug }}/mood">Настроение</a>
+</div>
+
+<form class="filters" method="get">
+  <select name="category" onchange="this.form.submit()">
+    <option value="">Все категории</option>
+    {% for c in categories %}
+    <option value="{{ c }}" {{ 'selected' if c == selected_category }}>{{ c }}</option>
+    {% endfor %}
+  </select>
+  <label><input type="checkbox" name="only_abnormal" value="1" {{ 'checked' if only_abnormal }} onchange="this.form.submit()"> только отклонения</label>
+</form>
+
+{% if rows %}
+<table>
+  <tr><th>Дата</th><th>Маркер</th><th>Значение</th><th>Референс</th><th>Флаг</th><th>Категория</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.taken_at|fmt_date }}</td>
+    <td>{% if r.analyte_code %}<a href="/s/{{ subject.slug }}/marker/{{ r.analyte_code }}">{{ r.analyte_name }}</a>{% else %}{{ r.raw_name }} <span class="muted">(не сопоставлено)</span>{% endif %}</td>
+    <td>{{ r.value_num|fmt_num if r.value_num is not none else (r.value_text or '—') }} {{ r.unit or '' }}</td>
+    <td>{{ r.ref_text or '—' }}</td>
+    <td class="flag-{{ r.flag }}">{{ r.flag }}</td>
+    <td>{{ r.category or '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Ничего не найдено по выбранным фильтрам.</p>
+{% endif %}
+</div>
+{% endblock %}

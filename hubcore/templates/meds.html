@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Таблетки — {{ subject.name }}{% endblock %}
+{% block content %}
+<div class="subject-page subject-{{ subject.slug }}">
+<h1>{{ subject.name }}</h1>
+<div class="section-tabs">
+  <a href="/s/{{ subject.slug }}">Профиль</a>
+  <a href="/s/{{ subject.slug }}/timeline">Лента</a>
+  <a href="/s/{{ subject.slug }}/labs">Все анализы</a>
+  <a class="active" href="/s/{{ subject.slug }}/meds">Таблетки</a>
+  <a href="/s/{{ subject.slug }}/mood">Настроение</a>
+</div>
+
+<div class="month-nav">
+  <a class="btn secondary" href="/s/{{ subject.slug }}/meds?year={{ prev_year }}&month={{ prev_month }}">← пред. месяц</a>
+  <div class="month-label">{{ month_label }}</div>
+  <a class="btn secondary" href="/s/{{ subject.slug }}/meds?year={{ next_year }}&month={{ next_month }}">след. месяц →</a>
+</div>
+
+{% if med_calendars %}
+<p class="muted" data-dose-summary>Принято {{ total_taken }} из {{ total_slots }} за месяц.</p>
+<div class="meds-table-wrap">
+<table class="meds-calendar">
+  <tr>
+    <th>Лекарство</th>
+    {% for d in days %}<th class="{{ 'today' if d == today }}">{{ d.day }}</th>{% endfor %}
+  </tr>
+  {% for mc in med_calendars %}
+  <tr>
+    <td class="med-name-cell">
+      <div class="med-name">{{ mc.med.name }}</div>
+      <div class="muted" style="font-size:0.74rem;">{{ mc.med.dose or '' }}{% if mc.med.schedule %} · {{ mc.med.schedule }}{% endif %}</div>
+    </td>
+    {% for cell in mc.days %}
+    <td class="{{ 'today' if cell.date == today }} {{ 'inactive' if not cell.active }}">
+      {% if cell.active %}
+        {% for s in cell.slots %}
+        <form class="dose-form" method="post" action="/s/{{ subject.slug }}/meds/toggle">
+          <input type="hidden" name="medication_id" value="{{ mc.med.id }}">
+          <input type="hidden" name="date" value="{{ cell.date.isoformat() }}">
+          <input type="hidden" name="slot" value="{{ s.slot }}">
+          <input type="hidden" name="year" value="{{ year }}">
+          <input type="hidden" name="month" value="{{ month }}">
+          <button type="submit" class="dose-dot {{ 'taken' if s.taken }}" aria-label="приём {{ s.slot }} — {{ cell.date.isoformat() }}"></button>
+        </form>
+        {% endfor %}
+      {% endif %}
+    </td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% else %}
+<p class="empty-state">Активных назначений нет.</p>
+{% endif %}
+</div>
+{% endblock %}

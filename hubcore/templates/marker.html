@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ analyte.name_ru }} — {{ subject.name }}{% endblock %}
+{% block content %}
+<div class="subject-page subject-{{ subject.slug }}">
+<h1>{{ subject.name }} · {{ analyte.name_ru }}</h1>
+<p class="muted">{{ analyte.category }} · единица: {{ analyte.unit_canonical or '—' }}</p>
+<p><a href="/s/{{ subject.slug }}">&larr; назад в профиль</a></p>
+
+{% if svg %}
+{{ svg|safe }}
+{% else %}
+<p class="empty-state">Недостаточно числовых значений для графика.</p>
+{% endif %}
+
+<h2>Все значения</h2>
+{% if rows %}
+<table>
+  <tr><th>Дата</th><th>Значение</th><th>Референс</th><th>Флаг</th><th>Документ</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.taken_at|fmt_date }}</td>
+    <td>{{ r.value_num|fmt_num if r.value_num is not none else (r.value_text or '—') }} {{ r.unit or '' }}</td>
+    <td>{{ r.ref_text or '—' }}</td>
+    <td class="flag-{{ r.flag }}">{{ r.flag }}</td>
+    <td><a href="/document/{{ r.document_id }}">открыть</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Значений нет.</p>
+{% endif %}
+</div>
+{% endblock %}

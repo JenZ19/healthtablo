@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Поиск — Семейный хаб здоровья{% endblock %}
+{% block content %}
+<h1>Поиск{% if q %}: «{{ q }}»{% endif %}</h1>
+
+<h2>Документы</h2>
+{% if docs %}
+<table>
+  <tr><th>Дата</th><th>Название</th><th>Субъект</th><th></th></tr>
+  {% for d in docs %}
+  <tr>
+    <td>{{ d.doc_date|fmt_date }}</td>
+    <td>{{ d.title or '—' }}</td>
+    <td>{{ d.subject_name or '—' }}</td>
+    <td><a href="/document/{{ d.id }}">открыть</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Ничего не найдено{% if q %} среди документов{% endif %}.</p>
+{% endif %}
+
+<h2>Результаты анализов</h2>
+{% if results_rows %}
+<table>
+  <tr><th>Дата</th><th>Субъект</th><th>Маркер</th><th>Значение</th></tr>
+  {% for r in results_rows %}
+  <tr>
+    <td>{{ r.taken_at|fmt_date }}</td>
+    <td>{{ r.subject_name or '—' }}</td>
+    <td>{{ r.analyte_name or r.raw_name }}</td>
+    <td>{{ r.value_num|fmt_num if r.value_num is not none else (r.value_text or '—') }} {{ r.unit or '' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Ничего не найдено среди результатов анализов.</p>
+{% endif %}
+
+<h2>Заметки</h2>
+{% if notes_rows %}
+<table>
+  <tr><th>Дата</th><th>Субъект</th><th>Заголовок</th><th>Текст</th></tr>
+  {% for n in notes_rows %}
+  <tr>
+    <td>{{ n.date|fmt_date }}</td>
+    <td>{{ n.subject_name or '—' }}</td>
+    <td>{{ n.title or '—' }}</td>
+    <td>{{ n.body }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Ничего не найдено среди заметок.</p>
+{% endif %}
+{% endblock %}

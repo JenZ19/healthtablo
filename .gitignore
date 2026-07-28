@@ -1,0 +1,10 @@
+# Медицинские данные семьи. В репозиторий не попадают никогда.
+data/
+inbox/*
+!inbox/.gitkeep
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store

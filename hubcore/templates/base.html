@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Семейный хаб здоровья{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_version('style.css') }}">
+  <script src="/static/app.js?v={{ asset_version('app.js') }}" defer></script>
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+  <link rel="apple-touch-icon" href="/static/icon.svg">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Семейный хаб здоровья</a>
+    <nav>
+      <a href="/">Главная</a>
+      <a href="/documents">Документы</a>
+      <a href="/inbox">Входящие</a>
+    </nav>
+    <form class="search-form" action="/search" method="get">
+      <input type="text" name="q" placeholder="Поиск…" value="{{ q|default('') }}">
+      <button class="btn secondary" type="submit">Найти</button>
+    </form>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

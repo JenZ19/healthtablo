@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+jinja2
+pymupdf
+python-multipart
+pytest
+pyobjc-framework-Vision
+pyobjc-framework-Quartz
