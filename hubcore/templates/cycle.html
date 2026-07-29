@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Цикл — {{ subject.name }}{% endblock %}
+{% block content %}
+<div class="subject-page subject-{{ subject.slug }}">
+<h1>
+  <svg class="avatar avatar-lg" aria-hidden="true"><use href="#av-woman"></use></svg>
+  {{ subject.name }}
+</h1>
+<div class="section-tabs">
+  <a href="/s/{{ subject.slug }}">Профиль</a>
+  <a href="/s/{{ subject.slug }}/timeline">Лента</a>
+  <a href="/s/{{ subject.slug }}/labs">Все анализы</a>
+  <a href="/s/{{ subject.slug }}/meds">Таблетки</a>
+  <a href="/s/{{ subject.slug }}/mood">Настроение</a>
+  <a class="active" href="/s/{{ subject.slug }}/cycle">Цикл</a>
+</div>
+
+{% if stats %}
+<div class="cycle-stats">
+  <div class="cycle-stat">
+    <span class="cycle-stat-label">Последняя менструация</span>
+    <span class="cycle-stat-value">{{ stats.last_start|fmt_date }}</span>
+    <span class="cycle-stat-note">{{ stats.days_since }} дн. назад</span>
+  </div>
+  {% if stats.avg_cycle %}
+  <div class="cycle-stat">
+    <span class="cycle-stat-label">Длина цикла</span>
+    <span class="cycle-stat-value">{{ stats.avg_cycle }} дн.</span>
+    <span class="cycle-stat-note">от {{ stats.min_cycle }} до {{ stats.max_cycle }}</span>
+  </div>
+  {% endif %}
+  <div class="cycle-stat">
+    <span class="cycle-stat-label">Длительность</span>
+    <span class="cycle-stat-value">{{ stats.avg_length }} дн.</span>
+    <span class="cycle-stat-note">максимум {{ stats.max_length }}</span>
+  </div>
+  {% if stats.expected %}
+  <div class="cycle-stat{{ ' soon' if stats.days_to_expected is not none and stats.days_to_expected <= 3 }}">
+    <span class="cycle-stat-label">Ожидается</span>
+    <span class="cycle-stat-value">{{ stats.expected|fmt_date }}</span>
+    <span class="cycle-stat-note">
+      {% if stats.days_to_expected < 0 %}задержка {{ -stats.days_to_expected }} дн.
+      {% elif stats.days_to_expected == 0 %}сегодня
+      {% else %}через {{ stats.days_to_expected }} дн.{% endif %}
+    </span>
+  </div>
+  {% endif %}
+</div>
+{% if stats.irregular %}
+<p class="muted" style="font-size:0.84rem;">
+  Разброс длины цикла за последние месяцы больше девяти дней. Это просто наблюдение из ваших же отметок,
+  а не вывод — причины оценивает врач.
+</p>
+{% endif %}
+<p class="muted" style="font-size:0.8rem;">
+  «Ожидается» — среднее по прошлым циклам, и только. Прогноз не учитывает ни стресс, ни болезни,
+  ни приём препаратов.
+</p>
+{% endif %}
+
+<div class="month-nav">
+  <a class="btn secondary" href="/s/{{ subject.slug }}/cycle?year={{ prev_year }}&month={{ prev_month }}">← пред. месяц</a>
+  <strong>{{ month_label }}</strong>
+  <a class="btn secondary" href="/s/{{ subject.slug }}/cycle?year={{ next_year }}&month={{ next_month }}">след. месяц →</a>
+</div>
+
+<div class="cycle-grid">
+  {% for d in days %}
+  {% set iso = d.isoformat() %}
+  {% set rec = by_date.get(iso) %}
+  <details class="cycle-day{{ ' marked' if rec }}{{ ' today' if d == today }}">
+    <summary>
+      <span class="cycle-num">{{ d.day }}</span>
+      <span class="cycle-mark flow-{{ rec.flow if rec else 'none' }}"></span>
+    </summary>
+    <form method="post" action="/s/{{ subject.slug }}/cycle/set" class="cycle-form">
+      <input type="hidden" name="date" value="{{ iso }}">
+      <input type="hidden" name="year" value="{{ year }}">
+      <input type="hidden" name="month" value="{{ month }}">
+      <label>Выделения
+        <select name="flow">
+          <option value="">нет</option>
+          {% for f in flows %}
+          <option value="{{ f }}" {{ 'selected' if rec and rec.flow == f }}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <fieldset class="cycle-symptoms">
+        <legend>Самочувствие</legend>
+        {% for sym in symptoms_list %}
+        <label class="chk">
+          <input type="checkbox" name="symptoms" value="{{ sym }}"
+                 {{ 'checked' if rec and rec.symptoms and sym in rec.symptoms }}>{{ sym }}
+        </label>
+        {% endfor %}
+      </fieldset>
+      <label>Заметка <input type="text" name="note" value="{{ rec.note if rec and rec.note else '' }}"></label>
+      <button class="btn" type="submit">Сохранить</button>
+    </form>
+  </details>
+  {% endfor %}
+</div>
+
+<p class="cycle-legend">
+  {% for f in flows %}<span><i class="flow-{{ f }}"></i>{{ f }}</span>{% endfor %}
+</p>
+
+<h2>История</h2>
+{% if episodes %}
+<table>
+  <tr><th>Начало</th><th>Длительность</th><th>Обильность</th><th>Самочувствие</th></tr>
+  {% for e in episodes %}
+  <tr>
+    <td>{{ e.start|fmt_date }}</td>
+    <td>{{ e.length }} дн.</td>
+    <td>{{ e.peak_flow or '—' }}</td>
+    <td class="muted">{{ e.symptoms|join(', ') if e.symptoms else '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="empty-state">Отметок пока нет. Нажмите на день в календаре и укажите выделения.</p>
+{% endif %}
+</div>
+{% endblock %}

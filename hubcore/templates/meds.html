@@ -9,6 +9,9 @@
   <a href="/s/{{ subject.slug }}/labs">Все анализы</a>
   <a class="active" href="/s/{{ subject.slug }}/meds">Таблетки</a>
   <a href="/s/{{ subject.slug }}/mood">Настроение</a>
+  {% if subject.kind != 'dog' and (subject.sex or '')|lower in ['female', 'ж', 'жен', 'женский'] %}
+  <a href="/s/{{ subject.slug }}/cycle">Цикл</a>
+  {% endif %}
 </div>
 
 <div class="month-nav">

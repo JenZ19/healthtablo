@@ -939,3 +939,79 @@ td a[class^="subject-"], td a[class*=" subject-"] { color: var(--subject, var(--
 .subject-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
 .subject-head h3 { margin: 0; }
 .subject-page h1 { gap: 0; }
+
+/* --- Менструальный календарь ------------------------------------------
+   Отдельная палитра: не терракотовая, чтобы не путалась с отклонениями
+   в анализах, и не зелёная, чтобы не читалась как «норма». Насыщенность
+   растёт вместе с обильностью. */
+
+:root {
+  --flow-1: #f0c9d4;
+  --flow-2: #e0a3b6;
+  --flow-3: #c8768f;
+  --flow-4: #a8546e;
+}
+
+.cycle-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.cycle-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--flow-3);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 2px;
+}
+.cycle-stat.soon { border-left-color: var(--flow-4); background: #fdf6f8; }
+.cycle-stat-label { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.cycle-stat-value { font-size: 1.2rem; font-weight: 650; letter-spacing: -0.02em; }
+.cycle-stat-note { font-size: 0.8rem; color: var(--text-muted); }
+
+.cycle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cycle-day {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+.cycle-day.today { border-color: var(--accent); }
+.cycle-day > summary {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 10px 12px; cursor: pointer; list-style: none;
+}
+.cycle-day > summary::before { content: none; }
+.cycle-day > summary::-webkit-details-marker { display: none; }
+.cycle-num { font-size: 0.9rem; color: var(--text-muted); }
+.cycle-day.marked .cycle-num { color: var(--text); font-weight: 600; }
+
+.cycle-mark { width: 13px; height: 13px; border-radius: 50%; background: var(--bg-tint); flex: none; }
+.flow-мажущие { background: var(--flow-1); }
+.flow-слабые { background: var(--flow-2); }
+.flow-умеренные { background: var(--flow-3); }
+.flow-обильные { background: var(--flow-4); }
+
+.cycle-form { padding: 0 12px 12px; display: grid; gap: 9px; }
+.cycle-form label { display: grid; gap: 4px; font-size: 0.78rem; color: var(--text-muted); }
+.cycle-form select, .cycle-form input[type=text] {
+  padding: 6px 10px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); font-family: inherit; font-size: 0.86rem;
+}
+.cycle-symptoms { border: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.cycle-symptoms legend { font-size: 0.78rem; color: var(--text-muted); padding: 0; }
+.chk { display: flex !important; flex-direction: row; align-items: center; gap: 6px;
+       font-size: 0.82rem; color: var(--text); }
+
+.cycle-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; color: var(--text-muted); }
+.cycle-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cycle-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }

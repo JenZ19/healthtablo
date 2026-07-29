@@ -17,7 +17,7 @@ FILES_DIR = DATA_DIR / "files"
 INBOX_DIR = BASE_DIR / "inbox"
 DB_PATH = DATA_DIR / "health.db"
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -147,6 +147,22 @@ CREATE INDEX IF NOT EXISTS idx_notes_subject ON notes(subject_id);
 # обновлением версии. Все CREATE — с IF NOT EXISTS: миграцию безопасно
 # применять поверх боевой базы, старые данные не трогаются.
 MIGRATIONS: dict[int, str] = {
+    3: """
+-- Менструальный календарь. Отмечаются дни менструации с обильностью,
+-- из них выводятся длина цикла и длительность. Симптомы хранятся строкой
+-- через запятую: набор у каждой свой, а жёсткий справочник заставил бы
+-- подгонять ощущения под чужие категории.
+CREATE TABLE IF NOT EXISTS cycle_days (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    flow TEXT,
+    symptoms TEXT,
+    note TEXT,
+    UNIQUE(subject_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_cycle_days_subject ON cycle_days(subject_id, date);
+""",
     2: """
 CREATE TABLE IF NOT EXISTS med_doses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

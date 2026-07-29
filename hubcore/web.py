@@ -1747,6 +1747,189 @@ def labs(request: Request, slug: str, category: str = "", only_abnormal: str = "
         conn.close()
 
 
+
+# ---------------------------------------------------------------------------
+# Менструальный календарь
+# ---------------------------------------------------------------------------
+
+FLOW_LEVELS = [
+    ("мажущие", 1),
+    ("слабые", 2),
+    ("умеренные", 3),
+    ("обильные", 4),
+]
+FLOW_ORDER = {name: n for name, n in FLOW_LEVELS}
+
+# Частые спутники цикла. Список не медицинский классификатор, а подсказка
+# для быстрой отметки: своё можно вписать руками.
+COMMON_SYMPTOMS = [
+    "боль внизу живота", "боль в пояснице", "головная боль", "тошнота",
+    "слабость", "раздражительность", "отёки", "болезненность груди",
+    "сгустки", "межменструальные выделения",
+]
+
+
+def cycle_episodes(rows) -> list[dict]:
+    """Сгруппировать отмеченные дни в отдельные менструации.
+
+    Разрыв в один день не считается концом: пропуск отметки — обычное дело,
+    а разорванный на два эпизод исказил бы и длину цикла, и длительность.
+    """
+    dates = sorted({r["date"] for r in rows})
+    if not dates:
+        return []
+    by_date = {r["date"]: r for r in rows}
+
+    episodes, current = [], [dates[0]]
+    for prev, cur in zip(dates, dates[1:]):
+        try:
+            gap = (dt.date.fromisoformat(cur) - dt.date.fromisoformat(prev)).days
+        except ValueError:
+            gap = 99
+        if gap <= 2:
+            current.append(cur)
+        else:
+            episodes.append(current)
+            current = [cur]
+    episodes.append(current)
+
+    out = []
+    for days in episodes:
+        flows = [by_date[d]["flow"] for d in days if by_date[d]["flow"]]
+        peak = max(flows, key=lambda f: FLOW_ORDER.get(f, 0)) if flows else None
+        symptoms = set()
+        for d in days:
+            for sym in (by_date[d]["symptoms"] or "").split(","):
+                if sym.strip():
+                    symptoms.add(sym.strip())
+        out.append({
+            "start": days[0],
+            "end": days[-1],
+            "length": (dt.date.fromisoformat(days[-1]) - dt.date.fromisoformat(days[0])).days + 1,
+            "days": days,
+            "peak_flow": peak,
+            "symptoms": sorted(symptoms),
+        })
+    return out
+
+
+def cycle_stats(episodes: list[dict]) -> dict:
+    """Длина цикла, длительность менструации и ожидаемая следующая дата.
+
+    Прогноз — это среднее по последним циклам и ничего больше. Он не
+    учитывает ни стресс, ни болезни, ни гормональные препараты, поэтому
+    подписан как ожидаемая дата, а не как факт.
+    """
+    if not episodes:
+        return {}
+    starts = [dt.date.fromisoformat(e["start"]) for e in episodes]
+    gaps = [(b - a).days for a, b in zip(starts, starts[1:]) if 15 <= (b - a).days <= 90]
+    lengths = [e["length"] for e in episodes]
+
+    avg_cycle = round(sum(gaps) / len(gaps)) if gaps else None
+    recent = gaps[-6:]
+    today = dt.date.today()
+    last_start = starts[-1]
+
+    stats = {
+        "episodes": len(episodes),
+        "avg_cycle": avg_cycle,
+        "min_cycle": min(gaps) if gaps else None,
+        "max_cycle": max(gaps) if gaps else None,
+        "avg_length": round(sum(lengths) / len(lengths), 1),
+        "max_length": max(lengths),
+        "last_start": last_start.isoformat(),
+        "days_since": (today - last_start).days,
+        "irregular": bool(gaps and (max(recent) - min(recent)) > 9),
+    }
+    if avg_cycle:
+        expected = last_start + dt.timedelta(days=avg_cycle)
+        stats["expected"] = expected.isoformat()
+        stats["days_to_expected"] = (expected - today).days
+    return stats
+
+
+@app.get("/s/{slug}/cycle")
+def cycle_calendar(request: Request, slug: str, year: int | None = None, month: int | None = None):
+    conn = get_conn()
+    try:
+        subject = get_subject_or_404(conn, slug)
+        if not subject:
+            return RedirectResponse("/", status_code=302)
+
+        today = dt.date.today()
+        y, m = year or today.year, month or today.month
+        days, prev_year, prev_month, next_year, next_month = month_bounds(y, m)
+
+        all_rows = conn.execute(
+            "SELECT * FROM cycle_days WHERE subject_id=? ORDER BY date", (subject["id"],)
+        ).fetchall()
+        by_date = {r["date"]: r for r in all_rows}
+        episodes = cycle_episodes(all_rows)
+        stats = cycle_stats(episodes)
+
+        # какие дни месяца попадают внутрь менструации — для подсветки
+        in_period = {d for e in episodes for d in e["days"]}
+
+        return templates.TemplateResponse(
+            request,
+            "cycle.html",
+            {
+                "request": request,
+                "subject": subject,
+                "days": days,
+                "today": today,
+                "by_date": by_date,
+                "in_period": in_period,
+                "flows": [f for f, _ in FLOW_LEVELS],
+                "symptoms_list": COMMON_SYMPTOMS,
+                "episodes": list(reversed(episodes))[:12],
+                "stats": stats,
+                "year": y,
+                "month": m,
+                "month_label": month_label(y, m),
+                "prev_year": prev_year,
+                "prev_month": prev_month,
+                "next_year": next_year,
+                "next_month": next_month,
+            },
+        )
+    finally:
+        conn.close()
+
+
+@app.post("/s/{slug}/cycle/set")
+def cycle_set(
+    slug: str,
+    date: str = Form(...),
+    flow: str = Form(""),
+    symptoms: list[str] = Form([]),
+    note: str = Form(""),
+    year: int = Form(...),
+    month: int = Form(...),
+):
+    conn = get_conn()
+    try:
+        subject = get_subject_or_404(conn, slug)
+        if subject:
+            if not flow:
+                # снятие отметки: день не был менструальным
+                conn.execute("DELETE FROM cycle_days WHERE subject_id=? AND date=?",
+                             (subject["id"], date))
+            else:
+                conn.execute(
+                    """INSERT INTO cycle_days (subject_id, date, flow, symptoms, note)
+                       VALUES (?, ?, ?, ?, ?)
+                       ON CONFLICT(subject_id, date) DO UPDATE
+                         SET flow=excluded.flow, symptoms=excluded.symptoms, note=excluded.note""",
+                    (subject["id"], date, flow, ", ".join(symptoms), note.strip() or None),
+                )
+            conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(f"/s/{slug}/cycle?year={year}&month={month}", status_code=303)
+
+
 # ---------------------------------------------------------------------------
 # Документы
 # ---------------------------------------------------------------------------
