@@ -16,7 +16,7 @@
 </div>
 
 {% if stats %}
-<div class="cycle-stats">
+<div class="cycle-stats stagger">
   <div class="cycle-stat">
     <span class="cycle-stat-label">Последняя менструация</span>
     <span class="cycle-stat-value">{{ stats.last_start|fmt_date }}</span>
@@ -64,46 +64,90 @@
   <a class="btn secondary" href="/s/{{ subject.slug }}/cycle?year={{ next_year }}&month={{ next_month }}">след. месяц →</a>
 </div>
 
-<div class="cycle-grid">
-  {% for d in days %}
-  {% set iso = d.isoformat() %}
-  {% set rec = by_date.get(iso) %}
-  <details class="cycle-day{{ ' marked' if rec }}{{ ' today' if d == today }}">
-    <summary>
-      <span class="cycle-num">{{ d.day }}</span>
-      <span class="cycle-mark flow-{{ rec.flow if rec else 'none' }}"></span>
-    </summary>
-    <form method="post" action="/s/{{ subject.slug }}/cycle/set" class="cycle-form">
-      <input type="hidden" name="date" value="{{ iso }}">
-      <input type="hidden" name="year" value="{{ year }}">
-      <input type="hidden" name="month" value="{{ month }}">
-      <label>Выделения
-        <select name="flow">
-          <option value="">нет</option>
-          {% for f in flows %}
-          <option value="{{ f }}" {{ 'selected' if rec and rec.flow == f }}>{{ f }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <fieldset class="cycle-symptoms">
-        <legend>Самочувствие</legend>
-        {% for sym in symptoms_list %}
-        <label class="chk">
-          <input type="checkbox" name="symptoms" value="{{ sym }}"
-                 {{ 'checked' if rec and rec.symptoms and sym in rec.symptoms }}>{{ sym }}
-        </label>
-        {% endfor %}
-      </fieldset>
-      <label>Заметка <input type="text" name="note" value="{{ rec.note if rec and rec.note else '' }}"></label>
-      <button class="btn" type="submit">Сохранить</button>
-    </form>
-  </details>
-  {% endfor %}
+<div class="cal">
+  <div class="cal-head">
+    {% for w in weekdays %}<span>{{ w }}</span>{% endfor %}
+  </div>
+  <div class="cal-grid">
+    {% for _ in range(lead) %}<span class="cal-blank"></span>{% endfor %}
+    {% for d in days %}
+    {% set iso = d.isoformat() %}
+    {% set rec = by_date.get(iso) %}
+    <div class="cal-cell{{ ' marked' if rec }}{{ ' today' if d == today }}{{ ' picked' if selected and d == selected }}">
+      <a class="cal-day" href="/s/{{ subject.slug }}/cycle?year={{ year }}&month={{ month }}&d={{ iso }}"
+         title="{% if rec %}{{ rec.flow }}{% if rec.symptoms %} · {{ rec.symptoms }}{% endif %}{% else %}открыть день{% endif %}">
+        <span class="cal-num">{{ d.day }}</span>
+        <span class="cal-dot flow-{{ rec.flow if rec else 'none' }}"></span>
+      </a>
+      <form method="post" action="/s/{{ subject.slug }}/cycle/quick" class="cal-quick">
+        <input type="hidden" name="date" value="{{ iso }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <button type="submit" title="{{ 'снять отметку' if rec else 'отметить день' }}">{{ '×' if rec else '+' }}</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 
 <p class="cycle-legend">
   {% for f in flows %}<span><i class="flow-{{ f }}"></i>{{ f }}</span>{% endfor %}
+  <span class="muted">· «+» отмечает день сразу, клик по числу — открывает подробности</span>
 </p>
+
+{% if selected %}
+<div class="day-editor" id="day">
+  <div class="day-editor-head">
+    <h3>{{ selected.isoformat()|fmt_date }}</h3>
+    <a class="day-close" href="/s/{{ subject.slug }}/cycle?year={{ year }}&month={{ month }}" title="закрыть">×</a>
+  </div>
+  <form method="post" action="/s/{{ subject.slug }}/cycle/set" class="day-form">
+    <input type="hidden" name="date" value="{{ selected.isoformat() }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <input type="hidden" name="month" value="{{ month }}">
+
+    <div class="day-field">
+      <span class="day-label">Выделения</span>
+      <div class="flow-picker">
+        <label class="flow-opt flow-opt-none">
+          <input type="radio" name="flow" value="" {{ 'checked' if not selected_rec }}>
+          <span>нет</span>
+        </label>
+        {% for f in flows %}
+        <label class="flow-opt">
+          <input type="radio" name="flow" value="{{ f }}" {{ 'checked' if selected_rec and selected_rec.flow == f }}>
+          <span><i class="flow-{{ f }}"></i>{{ f }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="day-field">
+      <span class="day-label">Самочувствие</span>
+      <div class="sym-picker">
+        {% for sym in symptoms_list %}
+        <label class="sym-opt">
+          <input type="checkbox" name="symptoms" value="{{ sym }}"
+                 {{ 'checked' if selected_rec and selected_rec.symptoms and sym in selected_rec.symptoms }}>
+          <span>{{ sym }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="day-field">
+      <span class="day-label">Заметка</span>
+      <input class="day-note" type="text" name="note" placeholder="что-то, что стоит помнить к приёму врача"
+             value="{{ selected_rec.note if selected_rec and selected_rec.note else '' }}">
+    </div>
+
+    <div class="day-actions">
+      <button class="btn" type="submit">Сохранить</button>
+      <span class="muted">«нет» снимает отметку с этого дня</span>
+    </div>
+  </form>
+</div>
+{% endif %}
 
 <h2>История</h2>
 {% if episodes %}
@@ -119,7 +163,7 @@
   {% endfor %}
 </table>
 {% else %}
-<p class="empty-state">Отметок пока нет. Нажмите на день в календаре и укажите выделения.</p>
+<p class="empty-state">Отметок пока нет. Нажмите «+» на дне календаря — или на само число, чтобы указать обильность и самочувствие.</p>
 {% endif %}
 </div>
 {% endblock %}

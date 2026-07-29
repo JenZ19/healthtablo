@@ -940,10 +940,66 @@ td a[class^="subject-"], td a[class*=" subject-"] { color: var(--subject, var(--
 .subject-head h3 { margin: 0; }
 .subject-page h1 { gap: 0; }
 
+/* --- Движение ---------------------------------------------------------
+
+   Правила, по которым здесь анимируется всё:
+
+   1. 150–260 мс. Быстрее — не читается, медленнее — начинает раздражать
+      на десятый раз, а хаб открывают часто.
+   2. Только transform и opacity. Анимация ширины и высоты дёргает
+      раскладку и на слабой машине заметно тормозит.
+   3. Появление — ease-out (резво стартует, мягко тормозит), уход —
+      ease-in. Линейное движение выглядит механическим.
+   4. Не больше одного-двух движущихся объектов на экран. Это медицинские
+      данные: интерфейс, который постоянно шевелится, мешает читать.
+   5. Ничего не крутится и не пульсирует бесконечно.
+   6. prefers-reduced-motion выключает всё до нуля — без исключений.
+*/
+
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --t-fast: 150ms;
+  --t-base: 200ms;
+  --t-slow: 260ms;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Карточки внутри .stagger появляются волной. Задержки маленькие и
+   заканчиваются на шестом элементе: длинная волна выглядит как тормоза. */
+.stagger > * { animation: rise var(--t-slow) var(--ease-out) both; }
+.stagger > :nth-child(2) { animation-delay: 40ms; }
+.stagger > :nth-child(3) { animation-delay: 80ms; }
+.stagger > :nth-child(4) { animation-delay: 120ms; }
+.stagger > :nth-child(5) { animation-delay: 160ms; }
+.stagger > :nth-child(n+6) { animation-delay: 200ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* --- Менструальный календарь ------------------------------------------
+
    Отдельная палитра: не терракотовая, чтобы не путалась с отклонениями
    в анализах, и не зелёная, чтобы не читалась как «норма». Насыщенность
-   растёт вместе с обильностью. */
+   растёт вместе с обильностью.
+
+   Раскладка: сетка по неделям с понедельника, а редактор дня — карточка
+   под календарём. Форма с десятью галочками в клетку сетки не помещается
+   ни при каком размере ячейки, поэтому раскрывать её внутри дня нельзя. */
 
 :root {
   --flow-1: #f0c9d4;
@@ -954,7 +1010,7 @@ td a[class^="subject-"], td a[class*=" subject-"] { color: var(--subject, var(--
 
 .cycle-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
   margin-bottom: 16px;
 }
@@ -963,55 +1019,258 @@ td a[class^="subject-"], td a[class*=" subject-"] { color: var(--subject, var(--
   border: 1px solid var(--border);
   border-left: 4px solid var(--flow-3);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 14px 17px;
   box-shadow: var(--shadow);
   display: grid;
   gap: 2px;
+  transition: transform var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease-out);
 }
+.cycle-stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
 .cycle-stat.soon { border-left-color: var(--flow-4); background: #fdf6f8; }
-.cycle-stat-label { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
-.cycle-stat-value { font-size: 1.2rem; font-weight: 650; letter-spacing: -0.02em; }
+.cycle-stat-label {
+  font-size: 0.74rem; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-muted);
+}
+.cycle-stat-value { font-size: 1.22rem; font-weight: 650; letter-spacing: -0.02em; }
 .cycle-stat-note { font-size: 0.8rem; color: var(--text-muted); }
 
-.cycle-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.cycle-day {
+/* Календарь */
+
+.cal {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
+  padding: 14px;
   box-shadow: var(--shadow);
+  animation: fade var(--t-base) var(--ease-out) both;
 }
-.cycle-day.today { border-color: var(--accent); }
-.cycle-day > summary {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; padding: 10px 12px; cursor: pointer; list-style: none;
+.cal-head, .cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
 }
-.cycle-day > summary::before { content: none; }
-.cycle-day > summary::-webkit-details-marker { display: none; }
-.cycle-num { font-size: 0.9rem; color: var(--text-muted); }
-.cycle-day.marked .cycle-num { color: var(--text); font-weight: 600; }
+.cal-head {
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-align: center;
+}
+.cal-blank { visibility: hidden; }
 
-.cycle-mark { width: 13px; height: 13px; border-radius: 50%; background: var(--bg-tint); flex: none; }
+.cal-cell {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-height: 62px;
+  transition: border-color var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+.cal-cell:hover { transform: translateY(-1px); border-color: var(--border-strong); }
+.cal-cell.today { border-color: var(--accent); }
+.cal-cell.picked {
+  border-color: var(--flow-3);
+  box-shadow: 0 0 0 3px rgba(200, 118, 143, 0.16);
+}
+.cal-cell.marked { background: #fdf7f9; }
+
+.cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  min-height: 62px;
+  padding: 8px 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.cal-day:hover { text-decoration: none; }
+.cal-day:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.cal-num { font-size: 0.95rem; line-height: 1; }
+.cal-cell.marked .cal-num { color: var(--text); font-weight: 650; }
+.cal-cell.today .cal-num { color: var(--accent-deep); font-weight: 650; }
+
+.cal-dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--bg-tint);
+  transition: transform var(--t-base) var(--ease-out), background var(--t-base) var(--ease-out);
+}
+.cal-cell.marked .cal-dot { transform: scale(1.25); }
+
 .flow-мажущие { background: var(--flow-1); }
 .flow-слабые { background: var(--flow-2); }
 .flow-умеренные { background: var(--flow-3); }
 .flow-обильные { background: var(--flow-4); }
 
-.cycle-form { padding: 0 12px 12px; display: grid; gap: 9px; }
-.cycle-form label { display: grid; gap: 4px; font-size: 0.78rem; color: var(--text-muted); }
-.cycle-form select, .cycle-form input[type=text] {
-  padding: 6px 10px; border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm); font-family: inherit; font-size: 0.86rem;
+/* Кнопка быстрой отметки: появляется по наведению, но на сенсорном экране
+   наведения нет — там она видна всегда (см. медиазапрос ниже). */
+.cal-quick { position: absolute; top: 3px; right: 3px; }
+.cal-quick button {
+  width: 22px; height: 22px; padding: 0;
+  border: none; border-radius: 50%;
+  background: var(--bg-tint); color: var(--text-muted);
+  font-size: 0.9rem; line-height: 1; cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
 }
-.cycle-symptoms { border: none; padding: 0; margin: 0; display: grid; gap: 4px; }
-.cycle-symptoms legend { font-size: 0.78rem; color: var(--text-muted); padding: 0; }
-.chk { display: flex !important; flex-direction: row; align-items: center; gap: 6px;
-       font-size: 0.82rem; color: var(--text); }
+.cal-cell:hover .cal-quick button,
+.cal-quick button:focus-visible { opacity: 1; }
+.cal-quick button:hover { background: var(--flow-2); color: #fff; }
+.cal-cell.marked .cal-quick button { opacity: 0.45; }
 
-.cycle-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; color: var(--text-muted); }
+@media (hover: none) {
+  .cal-quick button { opacity: 0.6; width: 26px; height: 26px; }
+}
+
+.cycle-legend {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  font-size: 0.8rem; color: var(--text-muted); margin-top: 12px;
+}
 .cycle-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .cycle-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+
+/* Редактор дня */
+
+.day-editor {
+  background: var(--surface);
+  border: 1px solid var(--flow-2);
+  border-radius: var(--radius);
+  padding: 18px 22px 20px;
+  margin-top: 18px;
+  box-shadow: var(--shadow-hover);
+  animation: rise var(--t-slow) var(--ease-out) both;
+}
+.day-editor-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin-bottom: 14px;
+}
+.day-editor-head h3 { margin: 0; font-size: 1.05rem; }
+.day-close {
+  font-size: 1.3rem; line-height: 1; color: var(--text-muted);
+  padding: 2px 8px; border-radius: 999px;
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+.day-close:hover { background: var(--bg-tint); color: var(--text); text-decoration: none; }
+
+.day-form { display: grid; gap: 16px; }
+.day-field { display: grid; gap: 8px; }
+.day-label {
+  font-size: 0.74rem; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-muted);
+}
+
+/* Радиокнопки и галочки — «таблетками». Обычные квадратики в двенадцать
+   пикселей неудобно попадать, а тут по ним кликают ежедневно. */
+.flow-picker, .sym-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.flow-opt input, .sym-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.flow-opt > span, .sym-opt > span {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 15px; min-height: 38px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.87rem;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              color var(--t-fast) var(--ease-out);
+}
+.flow-opt > span i { width: 10px; height: 10px; border-radius: 50%; }
+.flow-opt > span:hover, .sym-opt > span:hover { background: var(--bg-tint); }
+
+.flow-opt input:checked + span {
+  border-color: var(--flow-3);
+  background: #fbeef2;
+  color: #8c4058;
+  font-weight: 550;
+}
+.flow-opt-none input:checked + span {
+  border-color: var(--border-strong); background: var(--bg-tint); color: var(--text-muted);
+}
+.sym-opt input:checked + span {
+  border-color: var(--flow-2);
+  background: #fbeef2;
+  font-weight: 550;
+}
+.flow-opt input:focus-visible + span, .sym-opt input:focus-visible + span {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+.day-note {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 0.9rem;
+  background: var(--surface);
+  transition: border-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out);
+}
+.day-note:focus {
+  outline: none; border-color: var(--flow-3);
+  box-shadow: 0 0 0 3px rgba(200, 118, 143, 0.14);
+}
+.day-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.day-actions .muted { font-size: 0.8rem; }
+
+@media (max-width: 640px) {
+  .cal { padding: 9px; }
+  .cal-head, .cal-grid { gap: 4px; }
+  .cal-cell, .cal-day { min-height: 52px; }
+  /* Кнопка «+» в узкой ячейке налезает на число. На телефоне она не нужна:
+     касание по самому дню открывает карточку, а она сразу под календарём. */
+  .cal-quick { display: none; }
+}
+
+/* Появление страницы целиком: очень короткое и только по прозрачности,
+   чтобы переход между вкладками не выглядел рывком. Сдвига здесь нет
+   намеренно — содержимое не должно «уезжать» под курсором. */
+main { animation: fade var(--t-base) var(--ease-out) both; }
+
+/* Вкладки, кнопки и ссылки-карточки: подсветка вместо резкого скачка.
+   Масштабирование при наведении запрещено — оно двигает соседей. */
+.section-tabs a {
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+.spark-card, .tile, .watch-card, .fact-chip {
+  transition: transform var(--t-base) var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out);
+}
+.spark-card:hover, .tile:hover, .fact-chip:hover { transform: translateY(-2px); }
+
+/* Видимый фокус с клавиатуры — по всему хабу, а не только в календаре. */
+a:focus-visible, button:focus-visible, select:focus-visible,
+input:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Навигация по месяцам на узком экране: три элемента в ряд не помещаются
+   и разъезжаются на две строки с подписью не под тем месяцем. Название
+   месяца выносится наверх отдельной строкой, кнопки делят низ пополам. */
+@media (max-width: 560px) {
+  .month-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    justify-items: stretch;
+    text-align: center;
+  }
+  .month-nav > strong, .month-nav .month-label {
+    grid-column: 1 / -1;
+    order: -1;
+    font-size: 1.05rem;
+  }
+  .month-nav .btn { text-align: center; }
+}

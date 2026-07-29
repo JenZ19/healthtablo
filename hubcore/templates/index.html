@@ -52,7 +52,7 @@
 
 {% if meds_progress %}
 <h2>Курсы лекарств в этом месяце</h2>
-<div class="cards">
+<div class="cards stagger">
   {% for m in meds_progress %}
   <a class="card course-card subject-{{ m.slug }}" href="/s/{{ m.slug }}/meds">
     <div class="course-top">

@@ -170,7 +170,7 @@
 
 {% if sparklines %}
 <h2>Динамика важного</h2>
-<div class="spark-grid">
+<div class="spark-grid stagger">
   {% for sp in sparklines %}
   <a class="spark-card" href="/s/{{ subject.slug }}/marker/{{ sp.analyte.code }}">
     <div class="spark-name">{{ sp.analyte.name_ru }}</div>

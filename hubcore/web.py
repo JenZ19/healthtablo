@@ -1831,12 +1831,17 @@ def cycle_stats(episodes: list[dict]) -> dict:
     today = dt.date.today()
     last_start = starts[-1]
 
+    # Дробная часть нужна, только когда циклы разной длины: «5.0 дн.»
+    # читается как ложная точность там, где на деле ровно пять.
+    avg_length = sum(lengths) / len(lengths)
+    avg_length = int(avg_length) if avg_length == int(avg_length) else round(avg_length, 1)
+
     stats = {
         "episodes": len(episodes),
         "avg_cycle": avg_cycle,
         "min_cycle": min(gaps) if gaps else None,
         "max_cycle": max(gaps) if gaps else None,
-        "avg_length": round(sum(lengths) / len(lengths), 1),
+        "avg_length": avg_length,
         "max_length": max(lengths),
         "last_start": last_start.isoformat(),
         "days_since": (today - last_start).days,
@@ -1850,7 +1855,13 @@ def cycle_stats(episodes: list[dict]) -> dict:
 
 
 @app.get("/s/{slug}/cycle")
-def cycle_calendar(request: Request, slug: str, year: int | None = None, month: int | None = None):
+def cycle_calendar(
+    request: Request,
+    slug: str,
+    year: int | None = None,
+    month: int | None = None,
+    d: str | None = None,
+):
     conn = get_conn()
     try:
         subject = get_subject_or_404(conn, slug)
@@ -1860,6 +1871,18 @@ def cycle_calendar(request: Request, slug: str, year: int | None = None, month: 
         today = dt.date.today()
         y, m = year or today.year, month or today.month
         days, prev_year, prev_month, next_year, next_month = month_bounds(y, m)
+
+        # Редактор дня раскрывается отдельной карточкой под календарём, а не
+        # внутри ячейки: форма с десятью галочками физически не помещается в
+        # клетку сетки и обрезала соседей.
+        selected = None
+        if d:
+            try:
+                cand = dt.date.fromisoformat(d)
+                if cand.year == y and cand.month == m:
+                    selected = cand
+            except ValueError:
+                selected = None
 
         all_rows = conn.execute(
             "SELECT * FROM cycle_days WHERE subject_id=? ORDER BY date", (subject["id"],)
@@ -1879,6 +1902,12 @@ def cycle_calendar(request: Request, slug: str, year: int | None = None, month: 
                 "subject": subject,
                 "days": days,
                 "today": today,
+                "selected": selected,
+                "selected_rec": by_date.get(selected.isoformat()) if selected else None,
+                # Календарь начинается с понедельника: date.weekday() уже
+                # считает от нуля для понедельника, поэтому пустышек ровно столько.
+                "lead": days[0].weekday(),
+                "weekdays": ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
                 "by_date": by_date,
                 "in_period": in_period,
                 "flows": [f for f, _ in FLOW_LEVELS],
@@ -1923,6 +1952,34 @@ def cycle_set(
                        ON CONFLICT(subject_id, date) DO UPDATE
                          SET flow=excluded.flow, symptoms=excluded.symptoms, note=excluded.note""",
                     (subject["id"], date, flow, ", ".join(symptoms), note.strip() or None),
+                )
+            conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(f"/s/{slug}/cycle?year={year}&month={month}", status_code=303)
+
+
+@app.post("/s/{slug}/cycle/quick")
+def cycle_quick(slug: str, date: str = Form(...), year: int = Form(...), month: int = Form(...)):
+    """Отметить или снять день одним нажатием, без раскрытия формы.
+
+    Обильность по умолчанию «умеренные»: уточнить её и самочувствие можно
+    в карточке дня, но чаще всего нужно просто зафиксировать сам факт.
+    """
+    conn = get_conn()
+    try:
+        subject = get_subject_or_404(conn, slug)
+        if subject:
+            existing = conn.execute(
+                "SELECT id FROM cycle_days WHERE subject_id=? AND date=?", (subject["id"], date)
+            ).fetchone()
+            if existing:
+                conn.execute("DELETE FROM cycle_days WHERE subject_id=? AND date=?",
+                             (subject["id"], date))
+            else:
+                conn.execute(
+                    "INSERT INTO cycle_days (subject_id, date, flow) VALUES (?, ?, ?)",
+                    (subject["id"], date, "умеренные"),
                 )
             conn.commit()
     finally:
