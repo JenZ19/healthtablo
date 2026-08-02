@@ -39,6 +39,7 @@ PUBLIC_PATHS = (
     "/static/icon.svg",
     "/static/apple-touch-icon",
     "/static/manifest.webmanifest",
+    "/apple-touch-icon",
     "/favicon.ico",
 )
 
@@ -2286,6 +2287,43 @@ def search(request: Request, q: str = ""):
         )
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Иконки
+# ---------------------------------------------------------------------------
+
+# iOS ищет иконку домашнего экрана в КОРНЕ сайта и перебирает несколько
+# имён подряд, независимо от того, что написано в <link> на странице.
+# Если ни одно не отвечает — молча ставит скриншот. Отсюда список: это
+# ровно те адреса, которые Safari запрашивает на самом деле.
+_ICON_ALIASES = (
+    "apple-touch-icon.png",
+    "apple-touch-icon-precomposed.png",
+    "apple-touch-icon-120x120.png",
+    "apple-touch-icon-120x120-precomposed.png",
+    "apple-touch-icon-152x152.png",
+    "apple-touch-icon-152x152-precomposed.png",
+    "apple-touch-icon-167x167.png",
+    "apple-touch-icon-180x180.png",
+    "apple-touch-icon-180x180-precomposed.png",
+)
+
+
+def _serve_touch_icon():
+    return FileResponse(BASE_DIR / "static" / "apple-touch-icon.png", media_type="image/png")
+
+
+# Маршруты заводятся поимённо, а не одним /{name}: такой перехватчик
+# сожрал бы и /login, и любую будущую страницу верхнего уровня —
+# что он и сделал, пока это не поймали тесты.
+for _name in _ICON_ALIASES:
+    app.add_api_route(f"/{_name}", _serve_touch_icon, methods=["GET"], include_in_schema=False)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(BASE_DIR / "static" / "icon.svg", media_type="image/svg+xml")
 
 
 # ---------------------------------------------------------------------------

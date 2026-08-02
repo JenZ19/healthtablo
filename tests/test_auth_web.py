@@ -179,7 +179,7 @@ def test_otkryty_tolko_ikonki_i_oformlenie(client):
     """
     from hubcore import web
 
-    razresheno = {"/login", "/favicon.ico"}
+    razresheno = {"/login", "/favicon.ico", "/apple-touch-icon"}
     for path in web.PUBLIC_PATHS:
         assert path in razresheno or path.startswith("/static/"), path
         assert not path.rstrip("/").endswith(("/documents", "/inbox", "/s")), path
@@ -192,3 +192,27 @@ def test_ikonka_otdaetsya_bez_vhoda(client):
     assert r.status_code == 200
     assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
     assert client.get("/static/manifest.webmanifest").status_code == 200
+
+
+def test_kornevye_ikonki_ne_perehvatyvayut_stranicy(client):
+    """Маршруты иконок не должны съедать обычные страницы.
+
+    Ловушка настоящая: один маршрут /{name} для всех имён иконок разом
+    перехватил /login, и хаб перестал пускать внутрь вообще.
+    """
+    auth.save_config("ivanova", "длинный пароль")
+    assert client.get("/login").status_code == 200
+    assert client.get("/apple-touch-icon.png").status_code == 200
+    # обычная страница по-прежнему уводит на вход, а не отдаёт картинку
+    r = client.get("/documents")
+    assert r.status_code == 303 and r.headers["location"].startswith("/login")
+
+
+def test_ios_probuet_neskolko_imen_i_vse_otvechayut(client):
+    """Safari перебирает имена сам, не глядя на <link> на странице."""
+    auth.save_config("ivanova", "длинный пароль")
+    for name in ("/apple-touch-icon.png", "/apple-touch-icon-precomposed.png",
+                 "/apple-touch-icon-180x180.png", "/apple-touch-icon-152x152.png",
+                 "/apple-touch-icon-120x120.png", "/favicon.ico"):
+        r = client.get(name)
+        assert r.status_code == 200, name
