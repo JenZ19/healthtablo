@@ -5,7 +5,8 @@
   hub.py init                                    — создать БД и папки
   hub.py ingest [path] [--subject s] [--source x] [--dry-run]
                                                    — разобрать файл или всю inbox/
-  hub.py serve [--port 8765]                      — поднять веб-интерфейс
+  hub.py serve [--port 8765] [--host 127.0.0.1]   — поднять веб-интерфейс
+  hub.py setpassword                              — задать логин и пароль для входа
   hub.py subjects                                 — список субъектов
   hub.py stats                                    — статистика по документам/результатам/маркерам
 """
@@ -77,7 +78,51 @@ def cmd_serve(args: argparse.Namespace) -> None:
     db_module.init_db()
     import uvicorn
 
-    uvicorn.run("hubcore.web:app", host="127.0.0.1", port=args.port, reload=False)
+    from hubcore import auth as auth_module
+
+    # Наружу — только с настроенным входом. Проверка до старта сервера,
+    # чтобы «сначала подниму, потом закрою» не случилось никогда.
+    auth_module.guard_public_bind(args.host)
+
+    uvicorn.run("hubcore.web:app", host=args.host, port=args.port, reload=False)
+
+
+def cmd_setpassword(args: argparse.Namespace) -> None:
+    """Задать логин и пароль для входа.
+
+    Пароль спрашивается интерактивно и не появляется ни в аргументах
+    команды, ни в истории оболочки — оттуда его достаёт кто угодно с
+    доступом к машине.
+    """
+    import getpass
+
+    from hubcore import auth as auth_module
+
+    username = (args.username or input("Логин: ")).strip()
+    if not username:
+        raise SystemExit("Логин не может быть пустым.")
+
+    password = getpass.getpass("Пароль: ")
+    if len(password) < 10:
+        raise SystemExit("Пароль короче 10 знаков. Этот хаб может стоять в сети — возьмите длиннее.")
+    if password != getpass.getpass("Пароль ещё раз: "):
+        raise SystemExit("Пароли не совпали.")
+
+    path = auth_module.save_config(username, password)
+    print(f"Вход настроен. Логин: {username}")
+    print(f"Файл: {path} (права 600, в репозиторий не попадает)")
+
+
+def cmd_passwordoff(args: argparse.Namespace) -> None:
+    """Убрать вход — осмысленно только для домашней машины."""
+    from hubcore import auth as auth_module
+
+    path = auth_module.config_path()
+    if path.exists():
+        path.unlink()
+        print(f"Вход выключен, {path} удалён.")
+    else:
+        print("Вход и так не был настроен.")
 
 
 def cmd_subjects(args: argparse.Namespace) -> None:
@@ -125,7 +170,16 @@ def main() -> None:
 
     p_serve = sub.add_parser("serve", help="поднять веб-интерфейс")
     p_serve.add_argument("--port", type=int, default=8765)
+    p_serve.add_argument("--host", default="127.0.0.1",
+                         help="адрес прослушивания; наружу — только с настроенным входом")
     p_serve.set_defaults(func=cmd_serve)
+
+    p_pw = sub.add_parser("setpassword", help="задать логин и пароль для входа")
+    p_pw.add_argument("--username", help="логин (иначе спросит)")
+    p_pw.set_defaults(func=cmd_setpassword)
+
+    sub.add_parser("passwordoff", help="выключить вход (только для домашней машины)").set_defaults(
+        func=cmd_passwordoff)
 
     sub.add_parser("subjects", help="список субъектов").set_defaults(func=cmd_subjects)
     sub.add_parser("stats", help="статистика").set_defaults(func=cmd_stats)

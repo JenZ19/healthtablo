@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Вход — Семейный хаб здоровья</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+</head>
+<body class="login-page">
+  <main class="login-wrap">
+    <form class="login-card" method="post" action="/login">
+      <div class="login-mark" aria-hidden="true"></div>
+      <h1>Семейный хаб здоровья</h1>
+      <p class="login-sub">Здесь медицинские данные семьи. Вход только для своих.</p>
+
+      {% if error %}<p class="login-error" role="alert">{{ error }}</p>{% endif %}
+
+      <label>Логин
+        <input type="text" name="username" autocomplete="username" autofocus required>
+      </label>
+      <label>Пароль
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn" type="submit">Войти</button>
+    </form>
+  </main>
+</body>
+</html>

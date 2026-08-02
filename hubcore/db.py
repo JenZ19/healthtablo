@@ -7,14 +7,18 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+# На сервере данные лежат отдельно от кода: код обновляется выкаткой,
+# а база и оригиналы документов переживают её и не попадают под rsync
+# --delete. Дома переменная не задана и всё остаётся в data/ рядом.
+DATA_DIR = Path(os.environ.get("HUB_DATA_DIR") or BASE_DIR / "data")
 FILES_DIR = DATA_DIR / "files"
-INBOX_DIR = BASE_DIR / "inbox"
+INBOX_DIR = Path(os.environ.get("HUB_INBOX_DIR") or BASE_DIR / "inbox")
 DB_PATH = DATA_DIR / "health.db"
 
 SCHEMA_VERSION = 3

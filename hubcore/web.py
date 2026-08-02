@@ -9,12 +9,14 @@ import datetime as dt
 import re
 import sqlite3
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from . import auth as auth_module
 from . import db as db_module
 from . import ingest as ingest_module
 from .analytes import categories
@@ -24,6 +26,27 @@ BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="Семейный хаб здоровья")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+# Пути, открытые без входа: сама страница входа и оформление для неё.
+# Больше ничего — ни одной страницы с данными здесь быть не должно.
+PUBLIC_PATHS = ("/login", "/static/style.css", "/static/icon.svg", "/favicon.ico")
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    """Пускать дальше только с действующей сессией.
+
+    Проверка стоит перед всеми маршрутами, а не навешивается на каждый по
+    отдельности: забыть повесить декоратор на новую страницу — вопрос
+    времени, а цена такой забывчивости здесь — открытая наружу медкарта.
+    """
+    if auth_module.enabled() and not request.url.path.startswith(PUBLIC_PATHS):
+        if not auth_module.valid_token(request.cookies.get(auth_module.SESSION_COOKIE)):
+            nxt = request.url.path
+            if request.url.query:
+                nxt += "?" + request.url.query
+            return RedirectResponse(f"/login?next={quote(nxt, safe='')}", status_code=303)
+    return await call_next(request)
 
 
 @app.on_event("startup")
@@ -2238,3 +2261,90 @@ def search(request: Request, q: str = ""):
         )
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Вход
+# ---------------------------------------------------------------------------
+
+def client_ip(request: Request) -> str:
+    """Адрес клиента с оглядкой на обратный прокси.
+
+    X-Forwarded-For подделывается кем угодно, поэтому доверять ему можно
+    только когда впереди действительно стоит nginx, — это и включается
+    флагом HUB_TRUST_PROXY при развёртывании на сервере.
+    """
+    import os
+
+    if os.environ.get("HUB_TRUST_PROXY") == "1":
+        fwd = request.headers.get("x-forwarded-for")
+        if fwd:
+            return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
+@app.get("/login")
+def login_form(request: Request, next: str = "/", error: str = ""):
+    if not auth_module.enabled():
+        return RedirectResponse("/", status_code=303)
+    if auth_module.valid_token(request.cookies.get(auth_module.SESSION_COOKIE)):
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(
+        request, "login.html", {"request": request, "next": next, "error": error}
+    )
+
+
+@app.post("/login")
+def login_submit(
+    request: Request,
+    username: str = Form(""),
+    password: str = Form(""),
+    next: str = Form("/"),
+):
+    ip = client_ip(request)
+    wait = auth_module.locked_out(ip)
+    if wait:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "request": request,
+                "next": next,
+                "error": f"Слишком много попыток. Подождите {wait // 60 + 1} мин.",
+            },
+            status_code=429,
+        )
+
+    if not auth_module.check_credentials(username, password):
+        auth_module.note_failure(ip)
+        # Одно сообщение на оба случая: подсказка «такого логина нет»
+        # экономит время тому, кто перебирает.
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"request": request, "next": next, "error": "Неверный логин или пароль."},
+            status_code=401,
+        )
+
+    auth_module.note_success(ip)
+    # Открытые перенаправления: пускаем только на свои же пути, иначе
+    # ссылку вида /login?next=https://чужой-сайт можно прислать в письме.
+    target = next if next.startswith("/") and not next.startswith("//") else "/"
+    resp = RedirectResponse(target, status_code=303)
+    resp.set_cookie(
+        auth_module.SESSION_COOKIE,
+        auth_module.issue_token(username),
+        max_age=auth_module.SESSION_TTL,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+        path="/",
+    )
+    return resp
+
+
+@app.post("/logout")
+def logout():
+    resp = RedirectResponse("/login", status_code=303)
+    resp.delete_cookie(auth_module.SESSION_COOKIE, path="/")
+    return resp

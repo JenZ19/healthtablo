@@ -8,3 +8,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
+
+# настройки входа: логин и хеш пароля
+data/auth.json
+auth.json

@@ -4,5 +4,9 @@ jinja2
 pymupdf
 python-multipart
 pytest
-pyobjc-framework-Vision
-pyobjc-framework-Quartz
+
+# OCR сканов работает через встроенный в macOS Vision. На Linux этих
+# пакетов нет и не нужно: хаб сам определяет, что Vision недоступен, и
+# просто пропускает распознавание картинок — PDF разбираются как обычно.
+pyobjc-framework-Vision; sys_platform == "darwin"
+pyobjc-framework-Quartz; sys_platform == "darwin"
