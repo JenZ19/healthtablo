@@ -1,0 +1,6 @@
+[Unit]
+Description=Резервная копия хаба здоровья
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/health-hub-backup

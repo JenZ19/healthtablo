@@ -1,0 +1,27 @@
+#!/bin/bash
+# Забрать резервную копию с сервера на домашнюю машину.
+#
+# Копия, лежащая на том же сервере, не спасает от пропажи самого
+# сервера — сгорел, заблокирован, не оплачен. Ставьте в расписание.
+#
+#   HUB_HOST=root@сервер HUB_KEY=~/.ssh/ключ health-hub-pull
+set -euo pipefail
+
+HOST=${HUB_HOST:?укажите HUB_HOST, например root@192.0.2.1}
+KEY=${HUB_KEY:-$HOME/.ssh/id_ed25519}
+SRC=${HUB_BACKUP_DIR:-/var/backups/health-hub}
+DEST=${HUB_LOCAL_BACKUPS:-$HOME/.local/share/health-hub-backups}
+mkdir -p "$DEST"
+
+# На macOS каталог держим в ~/.local/share, а не в Документах: у задач по
+# расписанию там регулярно отзывают доступ, и копирование молча перестаёт
+# работать, ничем себя не выдавая.
+rsync -az --delete \
+  -e "ssh -i $KEY -o StrictHostKeyChecking=no -o ConnectTimeout=20 -o BatchMode=yes" \
+  "$HOST:$SRC/" "$DEST/"
+
+DB=$(ls -t "$DEST"/health-*.db 2>/dev/null | head -1)
+[ -n "$DB" ] || { echo "$(date '+%F %H:%M')  ОШИБКА: снимок базы не приехал"; exit 1; }
+
+DOCS=$(sqlite3 "$DB" 'SELECT COUNT(*) FROM documents' 2>/dev/null || echo '?')
+echo "$(date '+%F %H:%M')  копия на месте: $(basename "$DB"), документов $DOCS"

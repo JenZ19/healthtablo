@@ -1,0 +1,11 @@
+[Unit]
+Description=Напоминания хаба здоровья
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=healthhub
+Group=healthhub
+WorkingDirectory=/opt/health-hub/app
+Environment=HUB_DATA_DIR=/var/lib/health-hub
+ExecStart=/opt/health-hub/venv/bin/python hub.py remind

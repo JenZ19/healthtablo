@@ -1,0 +1,32 @@
+[Unit]
+Description=Семейный хаб здоровья
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=healthhub
+Group=healthhub
+WorkingDirectory=/opt/health-hub/app
+Environment=HUB_DATA_DIR=/var/lib/health-hub
+Environment=HUB_INBOX_DIR=/var/lib/health-hub/inbox
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/health-hub/venv/bin/python hub.py serve --host 0.0.0.0 --port 8765
+Restart=on-failure
+RestartSec=5
+
+# Хаб не должен уметь ничего, кроме своей папки с данными. Если его
+# однажды получится сломать через веб, дальше этой папки не уйти.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/health-hub
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

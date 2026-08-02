@@ -1,0 +1,48 @@
+#!/bin/bash
+# Резервная копия хаба здоровья.
+#
+# База копируется командой sqlite .backup, а не cp: обычное копирование
+# файла может застать базу посреди записи и дать снимок, который не
+# откроется. Узнать об этом в момент восстановления — худший вариант.
+set -euo pipefail
+
+DATA=${HUB_DATA_DIR:-/var/lib/health-hub}
+DEST=${HUB_BACKUP_DIR:-/var/backups/health-hub}
+PY=${HUB_PYTHON:-/opt/health-hub/venv/bin/python}
+KEEP=${HUB_BACKUP_KEEP:-14}
+STAMP=$(date +%Y-%m-%d)
+
+mkdir -p "$DEST"
+
+"$PY" - "$DATA/health.db" "$DEST/health-$STAMP.db" <<'PY'
+import sqlite3, sys
+src, dst = sys.argv[1], sys.argv[2]
+s = sqlite3.connect(src); d = sqlite3.connect(dst)
+s.backup(d); d.close(); s.close()
+PY
+
+# Снимок сразу проверяется. Копия, которая не открывается, хуже её
+# отсутствия: она создаёт ложное спокойствие.
+OK=$("$PY" -c "
+import sqlite3, sys
+print(sqlite3.connect(sys.argv[1]).execute('PRAGMA integrity_check').fetchone()[0])
+" "$DEST/health-$STAMP.db")
+if [ "$OK" != "ok" ]; then
+  echo "СНИМОК БАЗЫ БИТЫЙ: $OK" >&2
+  rm -f "$DEST/health-$STAMP.db"
+  exit 1
+fi
+
+# Оригиналы документов меняются редко — один общий каталог с докачкой,
+# а не полная копия на каждый день.
+rsync -a --delete "$DATA/files/" "$DEST/files/"
+cp -a "$DATA/auth.json" "$DEST/auth.json" 2>/dev/null || true
+cp -a "$DATA/push_keys.json" "$DEST/push_keys.json" 2>/dev/null || true
+
+find "$DEST" -maxdepth 1 -name 'health-*.db' -mtime +"$KEEP" -delete
+
+DOCS=$("$PY" -c "
+import sqlite3, sys
+print(sqlite3.connect(sys.argv[1]).execute('SELECT COUNT(*) FROM documents').fetchone()[0])
+" "$DEST/health-$STAMP.db")
+echo "снимок $STAMP готов: документов $DOCS, файлов $(find "$DEST/files" -type f | wc -l)"
