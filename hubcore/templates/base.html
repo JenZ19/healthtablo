@@ -7,10 +7,25 @@
   <link rel="stylesheet" href="/static/style.css?v={{ asset_version('style.css') }}">
   <script src="/static/app.js?v={{ asset_version('app.js') }}" defer></script>
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
-  <link rel="apple-touch-icon" href="/static/icon.svg">
+  <!-- Иконка для домашнего экрана телефона: именно PNG. SVG здесь iOS не
+       понимает и молча подставляет уменьшенный скриншот страницы.
+       apple-mobile-web-app-capable убирает адресную строку — с домашнего
+       экрана хаб открывается как приложение. -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png?v={{ asset_version('apple-touch-icon.png') }}">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Здоровье">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#faf7f2">
 </head>
 <body>
 {% include "_avatars.svg" %}
+  {% if is_copy() %}
+  <div class="copy-banner">
+    Это <b>копия на компьютере</b>. Основной хаб — на сервере, отметки вносите там.
+    <a href="http://health-hub:8765/">открыть основной →</a>
+  </div>
+  {% endif %}
   <header class="site-header">
     <a class="brand" href="/">Семейный хаб здоровья</a>
     <nav>

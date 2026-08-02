@@ -1332,3 +1332,18 @@ input:focus-visible, summary:focus-visible {
   color: var(--high);
   font-size: 0.86rem;
 }
+
+/* Полоса «это копия». Намеренно поперёк всей ширины и над шапкой: когда
+   две одинаковые установки хаба открыты в соседних вкладках, различить
+   их можно только так. */
+.copy-banner {
+  background: var(--low-soft);
+  color: var(--low);
+  border-bottom: 1px solid #ecd6b8;
+  padding: 9px 30px;
+  font-size: 0.86rem;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 30;
+}
+.copy-banner a { color: var(--low); text-decoration: underline; text-underline-offset: 3px; }
+.copy-banner + header.site-header { top: 39px; }

@@ -144,3 +144,51 @@ def test_posle_serii_oshibok_vhod_priderzhivaetsya(client):
 def test_zagolovok_zapreshchaet_indeksaciyu(client):
     auth.save_config("zhenya", "длинный пароль")
     assert "noindex" in client.get("/login").text
+
+
+def test_ikonka_dlya_telefona_est_i_ona_png(client):
+    """iOS берёт иконку домашнего экрана только из PNG.
+
+    С SVG он молча подставляет уменьшенный скриншот страницы — то есть
+    кусок медицинской таблицы на домашнем экране телефона.
+    """
+    from hubcore import web
+
+    auth.save_config("ivanova", "длинный пароль")
+    html = client.get("/login").text
+    assert 'rel="apple-touch-icon"' in html
+    assert ".png" in html.split('rel="apple-touch-icon"')[1].split(">")[0]
+    icon = web.BASE_DIR / "static" / "apple-touch-icon.png"
+    assert icon.exists() and icon.stat().st_size > 1000
+    assert icon.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_v_ishodnike_stranicy_vhoda_net_kommentariev_o_soderzhimom(client):
+    """Комментарии в HTML читает любой, кто открыл исходник страницы."""
+    auth.save_config("ivanova", "длинный пароль")
+    html = client.get("/login").text
+    for slovo in ("анализ", "медицин", "паци", "диагноз"):
+        assert slovo not in html.lower()
+
+
+def test_otkryty_tolko_ikonki_i_oformlenie(client):
+    """Список открытых путей не должен разрастись до чего-то с данными.
+
+    Проверка буквальная: любой новый пункт в PUBLIC_PATHS обязан быть
+    либо страницей входа, либо картинкой, либо стилями.
+    """
+    from hubcore import web
+
+    razresheno = {"/login", "/favicon.ico"}
+    for path in web.PUBLIC_PATHS:
+        assert path in razresheno or path.startswith("/static/"), path
+        assert not path.rstrip("/").endswith(("/documents", "/inbox", "/s")), path
+
+
+def test_ikonka_otdaetsya_bez_vhoda(client):
+    """Телефон забирает иконку до того, как где-либо войдёт."""
+    auth.save_config("ivanova", "длинный пароль")
+    r = client.get("/static/apple-touch-icon.png")
+    assert r.status_code == 200
+    assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
+    assert client.get("/static/manifest.webmanifest").status_code == 200

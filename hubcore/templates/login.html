@@ -7,13 +7,19 @@
   <title>Вход — Семейный хаб здоровья</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Здоровье">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#faf7f2">
 </head>
 <body class="login-page">
   <main class="login-wrap">
     <form class="login-card" method="post" action="/login">
       <div class="login-mark" aria-hidden="true"></div>
       <h1>Семейный хаб здоровья</h1>
-      <p class="login-sub">Здесь медицинские данные семьи. Вход только для своих.</p>
+      <p class="login-sub">Вход только для своих.</p>
 
       {% if error %}<p class="login-error" role="alert">{{ error }}</p>{% endif %}
 

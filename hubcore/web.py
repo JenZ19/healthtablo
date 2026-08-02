@@ -27,9 +27,20 @@ app = FastAPI(title="Семейный хаб здоровья")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# Пути, открытые без входа: сама страница входа и оформление для неё.
+# Пути, открытые без входа: страница входа, её оформление и иконки.
 # Больше ничего — ни одной страницы с данными здесь быть не должно.
-PUBLIC_PATHS = ("/login", "/static/style.css", "/static/icon.svg", "/favicon.ico")
+#
+# Иконки открыты намеренно: телефон забирает apple-touch-icon в момент
+# добавления на домашний экран, и если картинка окажется за паролем, iOS
+# молча подставит скриншот. Личных данных в ней нет — это рисунок сердца.
+PUBLIC_PATHS = (
+    "/login",
+    "/static/style.css",
+    "/static/icon.svg",
+    "/static/apple-touch-icon",
+    "/static/manifest.webmanifest",
+    "/favicon.ico",
+)
 
 
 @app.middleware("http")
@@ -52,6 +63,20 @@ async def require_login(request: Request, call_next):
 @app.on_event("startup")
 def _startup() -> None:
     db_module.init_db()
+
+
+def is_copy() -> bool:
+    """Эта установка — вспомогательная копия, а не основная.
+
+    Признак — файл КОПИЯ.txt в папке данных. Когда хаб живёт и дома, и на
+    сервере, перепутать их слишком легко: интерфейс одинаковый, а отметки,
+    внесённые не туда, тихо теряются. Поэтому копия честно об этом пишет
+    в каждой странице.
+    """
+    return (db_module.DATA_DIR / "КОПИЯ.txt").exists()
+
+
+templates.env.globals["is_copy"] = is_copy
 
 
 def asset_version(name: str) -> str:
