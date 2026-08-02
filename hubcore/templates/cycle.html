@@ -74,7 +74,7 @@
     {% set iso = d.isoformat() %}
     {% set rec = by_date.get(iso) %}
     <div class="cal-cell{{ ' marked' if rec }}{{ ' today' if d == today }}{{ ' picked' if selected and d == selected }}">
-      <a class="cal-day" href="/s/{{ subject.slug }}/cycle?year={{ year }}&month={{ month }}&d={{ iso }}"
+      <a class="cal-day" href="/s/{{ subject.slug }}/cycle?year={{ year }}&month={{ month }}&d={{ iso }}#day"
          title="{% if rec %}{{ rec.flow }}{% if rec.symptoms %} · {{ rec.symptoms }}{% endif %}{% else %}открыть день{% endif %}">
         <span class="cal-num">{{ d.day }}</span>
         <span class="cal-dot flow-{{ rec.flow if rec else 'none' }}"></span>

@@ -179,7 +179,7 @@ def test_otkryty_tolko_ikonki_i_oformlenie(client):
     """
     from hubcore import web
 
-    razresheno = {"/login", "/favicon.ico", "/apple-touch-icon"}
+    razresheno = {"/login", "/favicon.ico", "/apple-touch-icon", "/sw.js", "/push/key"}
     for path in web.PUBLIC_PATHS:
         assert path in razresheno or path.startswith("/static/"), path
         assert not path.rstrip("/").endswith(("/documents", "/inbox", "/s")), path
@@ -216,3 +216,27 @@ def test_ios_probuet_neskolko_imen_i_vse_otvechayut(client):
                  "/apple-touch-icon-120x120.png", "/favicon.ico"):
         r = client.get(name)
         assert r.status_code == 200, name
+
+
+def test_obrabotchik_uvedomlenij_dostupen_bez_vhoda(client):
+    """Браузер тянет sw.js служебным запросом — редирект ломает регистрацию."""
+    auth.save_config("ivanova", "длинный пароль")
+    r = client.get("/sw.js")
+    assert r.status_code == 200
+    assert "javascript" in r.headers["content-type"]
+    assert r.headers.get("Service-Worker-Allowed") == "/"
+
+
+def test_otkrytyj_klyuch_dostupen_a_podpiska_net(client):
+    """Ключ VAPID открытый по устройству, а запись подписки — нет."""
+    auth.save_config("ivanova", "длинный пароль")
+    assert client.get("/push/key").status_code == 200
+    r = client.post("/push/subscribe", json={"subscription": {"endpoint": "https://x"}})
+    assert r.status_code == 303, "чужой смог бы подписать своё устройство на наши уведомления"
+
+
+def test_v_obrabotchike_net_lichnyh_dannyh(client):
+    """Файл отдаётся кому угодно — в нём не должно быть ни имён, ни адресов."""
+    text = client.get("/sw.js").text.lower()
+    for slovo in ("зеленов", "берлов", "пряник", "@", "100.109"):
+        assert slovo not in text

@@ -1342,8 +1342,131 @@ input:focus-visible, summary:focus-visible {
   border-bottom: 1px solid #ecd6b8;
   padding: 9px 30px;
   font-size: 0.86rem;
-  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  /* Именно обычный текстовый блок, а не flex: во flex каждое слово рядом
+     с <b> становится отдельным элементом и строка разъезжается. */
+  line-height: 1.4;
   position: sticky; top: 0; z-index: 30;
 }
+.copy-banner a { margin-left: 8px; white-space: nowrap; }
 .copy-banner a { color: var(--low); text-decoration: underline; text-underline-offset: 3px; }
 .copy-banner + header.site-header { top: 39px; }
+
+/* --- Выбор состояния «таблетками» --------------------------------------
+   Тот же приём, что в календаре цикла: по мелкому выпадающему списку на
+   телефоне попадают со второго раза, а отмечают состояние ежедневно. */
+
+.mood-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.mood-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.mood-opt > span {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 15px; min-height: 38px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.87rem;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out);
+}
+.mood-opt > span i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.mood-opt > span:hover { background: var(--bg-tint); }
+.mood-opt input:checked + span { font-weight: 550; }
+.mood-opt-good input:checked + span { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-deep); }
+.mood-opt-neutral input:checked + span { border-color: var(--border-strong); background: var(--bg-tint); }
+.mood-opt-low input:checked + span { border-color: var(--low); background: var(--low-soft); color: var(--low); }
+.mood-opt-none > span { color: var(--text-muted); }
+.mood-opt-none input:checked + span { border-color: var(--border-strong); background: var(--bg-tint); }
+.mood-opt input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mood-good { background: var(--accent); }
+.mood-neutral { background: var(--unknown); }
+.mood-low { background: var(--low); }
+.mood-none { background: var(--bg-tint); }
+
+/* --- Телефон -----------------------------------------------------------
+   Экран узкий, а обе страницы — календарь плюс форма. Что здесь важно:
+   вкладки не должны переноситься в три ряда, ячейки должны оставаться
+   достаточно крупными для пальца, а редактор дня — открываться сразу
+   под календарём, без прокрутки вслепую. */
+
+@media (max-width: 640px) {
+  main { padding: 18px 14px 60px; }
+  h1 { font-size: 1.35rem; }
+
+  /* Вкладки — одной прокручиваемой строкой вместо трёх этажей. */
+  .section-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 4px;
+  }
+  .section-tabs::-webkit-scrollbar { display: none; }
+  .section-tabs a { flex: none; white-space: nowrap; }
+
+  .cal-cell, .cal-day { min-height: 46px; }
+  .cal-day { padding: 6px 2px; gap: 4px; }
+  .cal-num { font-size: 0.88rem; }
+  .cal-head { font-size: 0.66rem; }
+
+  .day-editor { padding: 15px 16px 17px; margin-top: 14px; }
+  .flow-picker, .sym-picker, .mood-picker { gap: 7px; }
+  .flow-opt > span, .sym-opt > span, .mood-opt > span {
+    padding: 9px 14px; min-height: 42px; font-size: 0.9rem;
+  }
+  .day-actions .btn { width: 100%; text-align: center; padding: 12px 20px; }
+  .day-actions { gap: 8px; }
+
+  .cycle-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cycle-stat { padding: 11px 13px; }
+  .cycle-stat-value { font-size: 1.05rem; }
+  .cycle-stat-label { font-size: 0.68rem; }
+
+  .mood-summary-row { grid-template-columns: 82px 1fr 24px; gap: 8px; }
+  .mood-summary-label { font-size: 0.78rem; }
+}
+
+/* Совсем узкие экраны: месяц из семи колонок всё ещё должен помещаться. */
+@media (max-width: 380px) {
+  main { padding: 16px 10px 60px; }
+  .cal { padding: 7px; }
+  .cal-head, .cal-grid { gap: 3px; }
+  .cal-cell, .cal-day { min-height: 42px; }
+  .cycle-stats { grid-template-columns: 1fr; }
+}
+
+/* Шапка на телефоне: логотип, меню и поиск в три этажа съедали треть
+   экрана до того, как начинался сам календарь. */
+@media (max-width: 640px) {
+  header.site-header {
+    padding: 10px 14px;
+    gap: 10px 14px;
+    row-gap: 8px;
+  }
+  header.site-header .brand { font-size: 0.98rem; }
+  header.site-header nav { gap: 2px; }
+  header.site-header nav a { padding: 4px 9px; font-size: 0.86rem; }
+  /* Поиск уходит в ту же строку и занимает остаток ширины. */
+  form.search-form { margin-left: 0; width: 100%; gap: 6px; }
+  form.search-form input[type="text"] { min-width: 0; flex: 1; padding: 8px 13px; }
+
+  .copy-banner { padding: 8px 14px; font-size: 0.8rem; }
+  .copy-banner + header.site-header { top: auto; position: static; }
+}
+
+/* Якорь #day прокручивает к карточке дня. Отступ сверху — чтобы под
+   липкой шапкой не пряталась дата, к которой мы и прокрутились. */
+.day-editor { scroll-margin-top: 76px; }
+
+/* Настройки уведомлений */
+.push-controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 8px; }
+.push-status { font-size: 0.86rem; color: var(--text-muted); margin: 0; }
+.push-status.ok { color: var(--accent-deep); }
+.push-status.warn {
+  color: var(--low); background: var(--low-soft);
+  padding: 9px 13px; border-radius: var(--radius-sm);
+}
+@media (max-width: 640px) {
+  .push-controls .btn { flex: 1; text-align: center; }
+}

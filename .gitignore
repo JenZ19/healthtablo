@@ -12,3 +12,7 @@ __pycache__/
 # настройки входа: логин и хеш пароля
 data/auth.json
 auth.json
+
+# ключи подписи уведомлений
+data/push_keys.json
+push_keys.json

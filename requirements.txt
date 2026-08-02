@@ -10,3 +10,4 @@ pytest
 # просто пропускает распознавание картинок — PDF разбираются как обычно.
 pyobjc-framework-Vision; sys_platform == "darwin"
 pyobjc-framework-Quartz; sys_platform == "darwin"
+pywebpush

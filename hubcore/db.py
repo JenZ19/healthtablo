@@ -21,7 +21,7 @@ FILES_DIR = DATA_DIR / "files"
 INBOX_DIR = Path(os.environ.get("HUB_INBOX_DIR") or BASE_DIR / "inbox")
 DB_PATH = DATA_DIR / "health.db"
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -151,6 +151,36 @@ CREATE INDEX IF NOT EXISTS idx_notes_subject ON notes(subject_id);
 # обновлением версии. Все CREATE — с IF NOT EXISTS: миграцию безопасно
 # применять поверх боевой базы, старые данные не трогаются.
 MIGRATIONS: dict[int, str] = {
+    4: """
+-- Подписки на пуш-уведомления. Одна строка на устройство: у телефона и
+-- ноутбука подписки разные, и отозвать одну, не тронув другую, нужно
+-- уметь — например когда телефон потерян.
+--
+-- endpoint приходит от самого браузера и уникален, поэтому он же ключ:
+-- повторная подписка того же устройства обновляет запись, а не плодит
+-- дубли, из-за которых одно уведомление приходило бы дважды.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    label TEXT,
+    created_at TEXT NOT NULL,
+    last_ok TEXT,
+    failures INTEGER NOT NULL DEFAULT 0
+);
+
+-- Что уже отправляли. Без этой таблицы одно и то же напоминание
+-- приходило бы каждый запуск планировщика, и уведомления быстро
+-- научились бы игнорировать.
+CREATE TABLE IF NOT EXISTS push_sent (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    sent_at TEXT NOT NULL,
+    UNIQUE(kind, key)
+);
+""",
     3: """
 -- Менструальный календарь. Отмечаются дни менструации с обильностью,
 -- из них выводятся длина цикла и длительность. Симптомы хранятся строкой

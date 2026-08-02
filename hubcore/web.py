@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -41,6 +41,12 @@ PUBLIC_PATHS = (
     "/static/manifest.webmanifest",
     "/apple-touch-icon",
     "/favicon.ico",
+    # Обработчик уведомлений и открытый ключ подписи. Данных в них нет:
+    # sw.js — код показа уведомления, а ключ VAPID открытый по устройству.
+    # Держать их за паролем нельзя: браузер запрашивает их отдельным
+    # служебным запросом, и редирект на страницу входа ломает регистрацию.
+    "/sw.js",
+    "/push/key",
 )
 
 
@@ -145,6 +151,24 @@ def month_bounds(year: int, month: int):
     prev_month, prev_year = (12, year - 1) if month == 1 else (month - 1, year)
     next_month, next_year = (1, year + 1) if month == 12 else (month + 1, year)
     return days, prev_year, prev_month, next_year, next_month
+
+
+WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+
+
+def pick_day(raw: str | None, year: int, month: int) -> dt.date | None:
+    """Разобрать ?d=ГГГГ-ММ-ДД и убедиться, что день из показанного месяца.
+
+    Чужой или битый день молча игнорируется: подставить его в редактор
+    значило бы предложить отметить дату, которой на экране нет.
+    """
+    if not raw:
+        return None
+    try:
+        cand = dt.date.fromisoformat(raw)
+    except ValueError:
+        return None
+    return cand if (cand.year, cand.month) == (year, month) else None
 
 
 def compute_age(birthdate: str | None) -> str | None:
@@ -1414,7 +1438,13 @@ MOODS = [m for m, _ in HUMAN_MOODS + DOG_MOODS] + [
 
 
 @app.get("/s/{slug}/mood")
-def mood_calendar(request: Request, slug: str, year: int | None = None, month: int | None = None):
+def mood_calendar(
+    request: Request,
+    slug: str,
+    year: int | None = None,
+    month: int | None = None,
+    d: str | None = None,
+):
     conn = get_conn()
     try:
         subject = get_subject_or_404(conn, slug)
@@ -1424,6 +1454,7 @@ def mood_calendar(request: Request, slug: str, year: int | None = None, month: i
         today = dt.date.today()
         y, m = year or today.year, month or today.month
         days, prev_year, prev_month, next_year, next_month = month_bounds(y, m)
+        selected = pick_day(d, y, m)
 
         rows = conn.execute(
             "SELECT * FROM mood_log WHERE subject_id=? AND date BETWEEN ? AND ?",
@@ -1447,6 +1478,10 @@ def mood_calendar(request: Request, slug: str, year: int | None = None, month: i
                 "days": days,
                 "today": today,
                 "by_date": by_date,
+                "selected": selected,
+                "selected_rec": by_date.get(selected.isoformat()) if selected else None,
+                "lead": days[0].weekday(),
+                "weekdays": WEEKDAYS,
                 "moods": palette,
                 "group_of": group_of,
                 "counts": counts,
@@ -1468,7 +1503,7 @@ def mood_calendar(request: Request, slug: str, year: int | None = None, month: i
 def mood_set(
     slug: str,
     date: str = Form(...),
-    mood: str = Form(...),
+    mood: str = Form(""),
     note: str = Form(""),
     year: str = Form(""),
     month: str = Form(""),
@@ -1476,7 +1511,13 @@ def mood_set(
     conn = get_conn()
     try:
         subject = get_subject_or_404(conn, slug)
-        if subject and mood in MOODS:
+        if subject and not mood:
+            # Пустой выбор снимает отметку: раньше её нельзя было убрать
+            # вообще, и ошибочно проставленный день оставался навсегда.
+            conn.execute("DELETE FROM mood_log WHERE subject_id=? AND date=?",
+                         (subject["id"], date))
+            conn.commit()
+        elif subject and mood in MOODS:
             conn.execute(
                 """INSERT INTO mood_log(subject_id, date, mood, note) VALUES (?,?,?,?)
                    ON CONFLICT(subject_id, date) DO UPDATE SET mood=excluded.mood, note=excluded.note""",
@@ -1924,14 +1965,7 @@ def cycle_calendar(
         # Редактор дня раскрывается отдельной карточкой под календарём, а не
         # внутри ячейки: форма с десятью галочками физически не помещается в
         # клетку сетки и обрезала соседей.
-        selected = None
-        if d:
-            try:
-                cand = dt.date.fromisoformat(d)
-                if cand.year == y and cand.month == m:
-                    selected = cand
-            except ValueError:
-                selected = None
+        selected = pick_day(d, y, m)
 
         all_rows = conn.execute(
             "SELECT * FROM cycle_days WHERE subject_id=? ORDER BY date", (subject["id"],)
@@ -1956,7 +1990,7 @@ def cycle_calendar(
                 # Календарь начинается с понедельника: date.weekday() уже
                 # считает от нуля для понедельника, поэтому пустышек ровно столько.
                 "lead": days[0].weekday(),
-                "weekdays": ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
+                "weekdays": WEEKDAYS,
                 "by_date": by_date,
                 "in_period": in_period,
                 "flows": [f for f, _ in FLOW_LEVELS],
@@ -2411,3 +2445,90 @@ def logout():
     resp = RedirectResponse("/login", status_code=303)
     resp.delete_cookie(auth_module.SESSION_COOKIE, path="/")
     return resp
+
+
+# ---------------------------------------------------------------------------
+# Пуш-уведомления
+# ---------------------------------------------------------------------------
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    """Обработчик уведомлений обязан отдаваться из корня сайта.
+
+    Service worker управляет только страницами не выше себя: лежи он в
+    /static, подписаться смогли бы лишь страницы оттуда.
+    """
+    return FileResponse(
+        BASE_DIR / "static" / "sw.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/push/key")
+def push_key():
+    from . import push as push_module
+
+    return PlainTextResponse(push_module.public_key())
+
+
+@app.post("/push/subscribe")
+async def push_subscribe(request: Request):
+    from . import push as push_module
+
+    data = await request.json()
+    sub = data.get("subscription") or {}
+    if not sub.get("endpoint"):
+        return JSONResponse({"ok": False, "error": "нет адреса подписки"}, status_code=400)
+    conn = get_conn()
+    try:
+        push_module.save_subscription(conn, sub, data.get("label"))
+    finally:
+        conn.close()
+    return JSONResponse({"ok": True})
+
+
+@app.post("/push/unsubscribe")
+async def push_unsubscribe(request: Request):
+    from . import push as push_module
+
+    data = await request.json()
+    conn = get_conn()
+    try:
+        push_module.forget_subscription(conn, data.get("endpoint", ""))
+    finally:
+        conn.close()
+    return JSONResponse({"ok": True})
+
+
+@app.get("/settings")
+def settings_page(request: Request):
+    from . import push as push_module
+    from . import reminders as reminders_module
+
+    conn = get_conn()
+    try:
+        subs = push_module.subscriptions(conn)
+        planned = reminders_module.collect(conn)
+    finally:
+        conn.close()
+    return templates.TemplateResponse(
+        request,
+        "settings.html",
+        {"request": request, "subs": subs, "planned": planned},
+    )
+
+
+@app.post("/push/test")
+def push_test():
+    """Отправить пробное уведомление — проверить всю цепочку целиком."""
+    from . import push as push_module
+
+    conn = get_conn()
+    try:
+        ok, failed = push_module.send_to_all(
+            conn, "Проверка связи", "Уведомления работают.", "/settings"
+        )
+    finally:
+        conn.close()
+    return RedirectResponse(f"/settings?test={ok}-{failed}", status_code=303)

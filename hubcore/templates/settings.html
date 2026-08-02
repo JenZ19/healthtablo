@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Настройки — Семейный хаб здоровья{% endblock %}
+{% block content %}
+<h1>Настройки</h1>
+
+<h2>Уведомления</h2>
+<div class="card">
+  <p class="muted" style="margin-top:0;">
+    Хаб может напоминать о том, что уже записано в его же данных: сегодняшняя таблетка не отмечена,
+    подошёл срок обработки у собаки, по прошлым циклам ожидается менструация.
+    Ничего не советует и не диагностирует — только про сроки.
+  </p>
+  <p class="muted" style="font-size:0.84rem;">
+    В самом уведомлении нет ни диагнозов, ни значений показателей: его видно
+    на заблокированном экране и через плечо.
+  </p>
+
+  <div class="push-controls">
+    <button class="btn" id="push-toggle" type="button">Включить уведомления</button>
+    {% if subs %}
+    <form method="post" action="/push/test" style="display:inline;">
+      <button class="btn secondary" type="submit">Отправить пробное</button>
+    </form>
+    {% endif %}
+  </div>
+  <p class="push-status" id="push-status">Проверяю…</p>
+</div>
+
+{% if subs %}
+<h3>Подписанные устройства</h3>
+<table>
+  <tr><th>Устройство</th><th>Подписано</th><th>Последняя доставка</th></tr>
+  {% for s in subs %}
+  <tr>
+    <td>{{ (s.label or 'без названия')[:60] }}</td>
+    <td class="muted">{{ s.created_at[:10]|fmt_date }}</td>
+    <td class="muted">{{ s.last_ok[:10]|fmt_date if s.last_ok else 'ещё не было' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+<p class="muted" style="font-size:0.82rem;">
+  Отключить устройство можно кнопкой выше — с него самого. Подписки, на которые
+  сервис отвечает «такого больше нет», хаб удаляет сам.
+</p>
+{% endif %}
+
+<h3>Что было бы отправлено сегодня</h3>
+{% if planned %}
+<table>
+  <tr><th>Повод</th><th>Кому</th><th>Что</th></tr>
+  {% for p in planned %}
+  <tr>
+    <td>{{ p.kind }}</td>
+    <td><a href="{{ p.url }}">{{ p.title }}</a></td>
+    <td class="muted">{{ p.body }}</td>
+  </tr>
+  {% endfor %}
+</table>
+<p class="muted" style="font-size:0.82rem;">
+  Это список поводов на сегодня, а не очередь на отправку: то, что уже отправляли,
+  повторно не уходит, и за один заход отправляется не больше трёх сообщений.
+</p>
+{% else %}
+<p class="empty-state">Сегодня напоминать не о чем.</p>
+{% endif %}
+
+<script src="/static/push.js?v={{ asset_version('push.js') }}" defer></script>
+{% endblock %}

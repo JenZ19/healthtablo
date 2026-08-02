@@ -125,6 +125,20 @@ def cmd_passwordoff(args: argparse.Namespace) -> None:
         print("Вход и так не был настроен.")
 
 
+def cmd_remind(args: argparse.Namespace) -> None:
+    """Разослать напоминания. Запускается по расписанию, не руками."""
+    from hubcore import reminders as reminders_module
+
+    with db_module.get_conn() as conn:
+        sent = reminders_module.run(conn, dry_run=args.dry_run)
+    if not sent:
+        print("напоминать не о чем")
+        return
+    for item in sent:
+        prefix = "БЫЛО БЫ:" if args.dry_run else "отправлено:"
+        print(f"{prefix} {item['title']} — {item['body']}")
+
+
 def cmd_subjects(args: argparse.Namespace) -> None:
     db_module.init_db()
     with db_module.get_conn() as conn:
@@ -180,6 +194,10 @@ def main() -> None:
 
     sub.add_parser("passwordoff", help="выключить вход (только для домашней машины)").set_defaults(
         func=cmd_passwordoff)
+
+    p_rem = sub.add_parser("remind", help="разослать напоминания (для расписания)")
+    p_rem.add_argument("--dry-run", action="store_true", help="показать, но не отправлять")
+    p_rem.set_defaults(func=cmd_remind)
 
     sub.add_parser("subjects", help="список субъектов").set_defaults(func=cmd_subjects)
     sub.add_parser("stats", help="статистика").set_defaults(func=cmd_stats)

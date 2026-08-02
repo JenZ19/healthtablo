@@ -2,51 +2,94 @@
 {% block title %}Настроение — {{ subject.name }}{% endblock %}
 {% block content %}
 <div class="subject-page subject-{{ subject.slug }}">
-<h1>{{ subject.name }}</h1>
+<h1>
+  <svg class="avatar avatar-lg" aria-hidden="true"><use href="#av-{{ 'dog' if subject.kind == 'dog' else ('man' if subject.sex == 'male' else 'woman') }}"></use></svg>
+  {{ subject.name }}
+</h1>
 <div class="section-tabs">
   <a href="/s/{{ subject.slug }}">Профиль</a>
   <a href="/s/{{ subject.slug }}/timeline">Лента</a>
   <a href="/s/{{ subject.slug }}/labs">Все анализы</a>
   <a href="/s/{{ subject.slug }}/meds">Таблетки</a>
   <a class="active" href="/s/{{ subject.slug }}/mood">Настроение</a>
+  {% if subject.kind != 'dog' and (subject.sex or '')|lower in ['female', 'ж', 'жен', 'женский'] %}
+  <a href="/s/{{ subject.slug }}/cycle">Цикл</a>
+  {% endif %}
 </div>
 
 <div class="month-nav">
   <a class="btn secondary" href="/s/{{ subject.slug }}/mood?year={{ prev_year }}&month={{ prev_month }}">← пред. месяц</a>
-  <div class="month-label">{{ month_label }}</div>
+  <strong class="month-label">{{ month_label }}</strong>
   <a class="btn secondary" href="/s/{{ subject.slug }}/mood?year={{ next_year }}&month={{ next_month }}">след. месяц →</a>
 </div>
 
-<p class="mood-legend">
+<div class="cal">
+  <div class="cal-head">
+    {% for w in weekdays %}<span>{{ w }}</span>{% endfor %}
+  </div>
+  <div class="cal-grid">
+    {% for _ in range(lead) %}<span class="cal-blank"></span>{% endfor %}
+    {% for day in days %}
+    {% set iso = day.isoformat() %}
+    {% set rec = by_date.get(iso) %}
+    <div class="cal-cell{{ ' marked' if rec }}{{ ' today' if day == today }}{{ ' picked' if selected and day == selected }}">
+      <a class="cal-day" href="/s/{{ subject.slug }}/mood?year={{ year }}&month={{ month }}&d={{ iso }}#day"
+         title="{{ rec.mood if rec else 'отметить день' }}">
+        <span class="cal-num">{{ day.day }}</span>
+        <span class="cal-dot mood-{{ group_of.get(rec.mood, 'neutral') if rec else 'none' }}"
+              data-mood="{{ rec.mood if rec else '' }}"></span>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<p class="cycle-legend">
   <span><i class="mood-good"></i>хорошее</span>
   <span><i class="mood-neutral"></i>нейтральное</span>
   <span><i class="mood-low"></i>тяжёлое</span>
+  <span class="muted">· нажмите на день, чтобы отметить</span>
 </p>
-<div class="mood-grid">
-  {% for d in days %}
-  {% set rec = by_date.get(d.isoformat()) %}
-  <details class="mood-day {{ 'today' if d == today }}">
-    <summary>
-      <span class="mood-daynum">{{ d.day }}</span>
-      <span class="mood-dot mood-{{ group_of.get(rec.mood, '') if rec else 'none' }}"
-            data-mood="{{ rec.mood if rec else '' }}"></span>
-    </summary>
-    <form method="post" action="/s/{{ subject.slug }}/mood/set">
-      <input type="hidden" name="date" value="{{ d.isoformat() }}">
-      <input type="hidden" name="year" value="{{ year }}">
-      <input type="hidden" name="month" value="{{ month }}">
-      <select name="mood" required>
-        <option value="">выбрать…</option>
+
+{% if selected %}
+<div class="day-editor" id="day">
+  <div class="day-editor-head">
+    <h3>{{ selected.isoformat()|fmt_date }}</h3>
+    <a class="day-close" href="/s/{{ subject.slug }}/mood?year={{ year }}&month={{ month }}" title="закрыть">×</a>
+  </div>
+  <form method="post" action="/s/{{ subject.slug }}/mood/set" class="day-form">
+    <input type="hidden" name="date" value="{{ selected.isoformat() }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <input type="hidden" name="month" value="{{ month }}">
+
+    <div class="day-field">
+      <span class="day-label">Состояние</span>
+      <div class="mood-picker">
         {% for mood, grp in moods %}
-        <option value="{{ mood }}" {{ 'selected' if rec and rec.mood == mood }}>{{ mood }}</option>
+        <label class="mood-opt mood-opt-{{ grp }}">
+          <input type="radio" name="mood" value="{{ mood }}" {{ 'checked' if selected_rec and selected_rec.mood == mood }}>
+          <span><i class="mood-{{ grp }}" data-mood="{{ mood }}"></i>{{ mood }}</span>
+        </label>
         {% endfor %}
-      </select>
-      <input type="text" name="note" placeholder="заметка" value="{{ rec.note if rec and rec.note else '' }}">
+        <label class="mood-opt mood-opt-none">
+          <input type="radio" name="mood" value="" {{ 'checked' if not selected_rec }}>
+          <span>снять отметку</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="day-field">
+      <span class="day-label">Заметка</span>
+      <input class="day-note" type="text" name="note" placeholder="что-то, что стоит помнить"
+             value="{{ selected_rec.note if selected_rec and selected_rec.note else '' }}">
+    </div>
+
+    <div class="day-actions">
       <button class="btn" type="submit">Сохранить</button>
-    </form>
-  </details>
-  {% endfor %}
+    </div>
+  </form>
 </div>
+{% endif %}
 
 <h2>Сводка за месяц</h2>
 {% if total_marked %}
@@ -56,7 +99,8 @@
   <div class="mood-summary-row">
     <span class="mood-summary-label">{{ mood }}</span>
     <div class="mood-summary-bar-wrap">
-      <div class="mood-summary-bar mood-{{ grp }}" style="width: {{ (counts[mood] / total_marked * 100)|round(1) }}%;"></div>
+      <div class="mood-summary-bar mood-{{ grp }}" data-mood="{{ mood }}"
+           style="width: {{ (counts[mood] / total_marked * 100)|round(1) }}%;"></div>
     </div>
     <span class="mood-summary-count">{{ counts[mood] }}</span>
   </div>
