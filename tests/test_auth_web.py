@@ -238,5 +238,5 @@ def test_otkrytyj_klyuch_dostupen_a_podpiska_net(client):
 def test_v_obrabotchike_net_lichnyh_dannyh(client):
     """Файл отдаётся кому угодно — в нём не должно быть ни имён, ни адресов."""
     text = client.get("/sw.js").text.lower()
-    for slovo in ("зеленов", "берлов", "пряник", "@", "100.109"):
+    for slovo in ("иванов", "петров", "барсик", "@", "100.109"):
         assert slovo not in text
